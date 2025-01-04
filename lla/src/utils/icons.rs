@@ -1,3 +1,4 @@
+use crate::utils::color::colorize_file_name_with_icon;
 use colored::Colorize;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -461,7 +462,9 @@ fn get_special_file_icon(filename: &str) -> Option<&'static str> {
 
 pub fn format_with_icon(path: &Path, name: String, show_icons: bool) -> String {
     if show_icons {
-        format!("{} {}", get_icon(path).bold(), name).to_string()
+        let icon_str = get_icon(path).bold();
+        let with_icon = format!("{} {}", icon_str, name);
+        colorize_file_name_with_icon(path, with_icon).to_string()
     } else {
         name
     }

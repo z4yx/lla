@@ -2,11 +2,11 @@
 name = "lla"
 version.workspace = true
 edition.workspace = true
-description = "A lightweight ls replacement"
+description = "Blazing Fast and highly customizable ls Replacement with Superpowers"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["cli", "ls", "lightweight"]
+keywords = ["cli", "ls", "blazing-fast"]
 categories = ["command-line-utilities"]
 exclude = ["docs"]
 
@@ -28,7 +28,8 @@ walkdir.workspace = true
 tempfile.workspace = true
 users.workspace = true
 parking_lot.workspace = true
-lla_plugin_interface = { version = "0.3.8", path = "../lla_plugin_interface" }
+lla_plugin_interface = { version = "0.3.9", path = "../lla_plugin_interface" }
+lla_plugin_utils = { version = "0.3.9", path = "../lla_plugin_utils" }
 once_cell.workspace = true
 dashmap.workspace = true
 unicode-width.workspace = true
@@ -46,3 +47,4 @@ crossterm = "0.27"
 crossbeam-channel = "0.5.14"
 unicode-normalization = "0.1.22"
 num_cpus = "1.16"
+fuzzy-matcher = "0.3.7"

@@ -1,6 +1,20 @@
-# LLA Themes
+# lla Themes
 
-LLA provides a powerful and flexible theming system that allows you to customize the appearance of your file listings. Each theme is defined in a TOML file and can customize colors for files, folders, permissions, and more.
+lla provides a powerful and flexible theming system that allows you to customize the appearance of your file listings. Each theme is defined in a TOML file and can customize colors for files, folders, permissions, and more.
+
+lla ships with a default theme collection, you can pull all builtin themes with the following command:
+
+```bash
+lla theme pull # pull all builtin themes
+```
+
+you can also install custom themes using the following command:
+
+```bash
+lla theme install /path/to/theme.toml
+# or a directory with multiple themes
+lla theme install /path/to/themes/
+```
 
 ## Table of Contents
 
@@ -52,7 +66,7 @@ directory = "#89AFFF"
 
 ## Color Formats
 
-LLA supports multiple color formats for maximum flexibility:
+lla supports multiple color formats for maximum flexibility:
 
 ```toml
 [colors]
@@ -192,7 +206,7 @@ rs = "#FF0000"      # Override just .rs files
 
 ## Color Resolution Order
 
-When determining a file's color, LLA follows this priority:
+When determining a file's color, lla follows this priority:
 
 1. If it's a directory:
 
@@ -210,7 +224,7 @@ When determining a file's color, LLA follows this priority:
 
 ## Built-in Themes
 
-LLA includes several pre-configured themes:
+lla includes several pre-configured themes:
 
 - **default**: Traditional terminal colors with carefully selected colors for optimal visibility
 - **dark**: Modern dark theme with enhanced visibility and rich colors for dark terminals

@@ -11,10 +11,11 @@ use crossterm::{
     style::{self},
     terminal::{self, ClearType},
 };
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use ignore::WalkBuilder;
 use parking_lot::RwLock;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::fs::Permissions;
 use std::io::{self, stdout, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -25,30 +26,20 @@ use std::sync::{
 };
 use std::thread;
 use std::time::{Duration, SystemTime};
-use unicode_normalization::UnicodeNormalization;
 
 const WORKER_THREADS: usize = 8;
 const CHUNK_SIZE: usize = 1000;
-const SCORE_MATCH: i32 = 16;
-const SCORE_GAP_START: i32 = -3;
-const SCORE_GAP_EXTENSION: i32 = -1;
-const BONUS_BOUNDARY: i32 = SCORE_MATCH / 2;
-const BONUS_NON_WORD: i32 = SCORE_MATCH / 2;
-const BONUS_CAMEL: i32 = BONUS_BOUNDARY + SCORE_GAP_EXTENSION;
-const BONUS_CONSECUTIVE: i32 = -(SCORE_GAP_START + SCORE_GAP_EXTENSION);
-const BONUS_FIRST_CHAR_MULTIPLIER: i32 = 2;
-const BONUS_BOUNDARY_WHITE: i32 = BONUS_BOUNDARY + 2;
-const BONUS_BOUNDARY_DELIMITER: i32 = BONUS_BOUNDARY + 1;
+const SEARCH_DEBOUNCE_MS: u64 = 50;
+const RENDER_INTERVAL_MS: u64 = 16;
 
-#[allow(dead_code)]
 #[derive(Clone)]
+#[allow(dead_code)]
 struct FileEntry {
     path: PathBuf,
     path_str: String,
     name_str: String,
     modified: SystemTime,
     normalized_path: String,
-    score_cache: Arc<RwLock<HashMap<String, (i32, Vec<usize>)>>>,
 }
 
 impl FileEntry {
@@ -58,7 +49,7 @@ impl FileEntry {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let normalized_path = path_str.nfkd().collect::<String>().to_lowercase();
+        let normalized_path = path_str.to_lowercase();
 
         Self {
             path_str,
@@ -69,199 +60,21 @@ impl FileEntry {
                 .and_then(|m| m.modified())
                 .unwrap_or_else(|_| SystemTime::now()),
             path,
-            score_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
 #[derive(Clone)]
 struct MatchResult {
-    score: i32,
+    score: i64,
     positions: Vec<usize>,
     entry: FileEntry,
 }
 
 #[derive(Clone)]
-struct FuzzyMatcher {
-    case_sensitive: bool,
-    pattern_cache: Arc<RwLock<HashMap<String, Vec<char>>>>,
-    bonus_cache: Arc<RwLock<HashMap<(char, char), i32>>>,
-}
-
-impl FuzzyMatcher {
-    fn new(case_sensitive: bool) -> Self {
-        Self {
-            case_sensitive,
-            pattern_cache: Arc::new(RwLock::new(HashMap::new())),
-            bonus_cache: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    fn get_cached_pattern(&self, pattern: &str) -> Vec<char> {
-        if let Some(cached) = self.pattern_cache.read().get(pattern) {
-            return cached.clone();
-        }
-
-        let normalized = if !self.case_sensitive {
-            pattern.to_lowercase()
-        } else {
-            pattern.to_string()
-        };
-
-        let chars: Vec<char> = normalized.chars().collect();
-        self.pattern_cache
-            .write()
-            .insert(pattern.to_string(), chars.clone());
-        chars
-    }
-
-    fn compute_bonus(&self, prev_class: char, curr_class: char) -> i32 {
-        if let Some(&bonus) = self.bonus_cache.read().get(&(prev_class, curr_class)) {
-            return bonus;
-        }
-
-        let bonus = match (prev_class, curr_class) {
-            (' ', c) if c.is_alphanumeric() => BONUS_BOUNDARY_WHITE,
-            ('/', c) | ('\\', c) | ('_', c) | ('-', c) | ('.', c) => {
-                if c.is_alphanumeric() {
-                    BONUS_BOUNDARY_DELIMITER
-                } else {
-                    BONUS_NON_WORD
-                }
-            }
-            (p, c) if !p.is_alphanumeric() && c.is_alphanumeric() => BONUS_BOUNDARY,
-            (p, c) if p.is_lowercase() && c.is_uppercase() => BONUS_CAMEL,
-            (p, c) if !p.is_numeric() && c.is_numeric() => BONUS_CAMEL,
-            (_, c) if !c.is_alphanumeric() => BONUS_NON_WORD,
-            _ => 0,
-        };
-
-        self.bonus_cache
-            .write()
-            .insert((prev_class, curr_class), bonus);
-        bonus
-    }
-
-    fn fuzzy_match(&self, text: &str, pattern: &str) -> Option<(i32, Vec<usize>)> {
-        if pattern.is_empty() {
-            return Some((0, vec![]));
-        }
-
-        let text = if !self.case_sensitive {
-            text.to_lowercase()
-        } else {
-            text.to_string()
-        };
-
-        let text_chars: Vec<char> = text.chars().collect();
-        let pattern_chars = self.get_cached_pattern(pattern);
-
-        let m = pattern_chars.len();
-        let n = text_chars.len();
-
-        if m > n {
-            return None;
-        }
-
-        let first_char = pattern_chars[0];
-        if !text_chars.contains(&first_char) {
-            return None;
-        }
-
-        let mut dp = vec![vec![0; n]; m];
-        let mut pos = vec![vec![0; n]; m];
-        let mut matches = vec![false; n];
-        let mut consecutive = vec![0; n];
-
-        let mut found_first = false;
-        for (j, &tc) in text_chars.iter().enumerate() {
-            if tc == first_char {
-                let bonus = if j == 0 {
-                    BONUS_BOUNDARY_WHITE
-                } else {
-                    self.compute_bonus(text_chars[j - 1], tc)
-                };
-                dp[0][j] = SCORE_MATCH + bonus * BONUS_FIRST_CHAR_MULTIPLIER;
-                matches[j] = true;
-                consecutive[j] = 1;
-                found_first = true;
-            } else if found_first {
-                dp[0][j] = dp[0][j - 1] + SCORE_GAP_EXTENSION;
-            }
-        }
-
-        if !found_first {
-            return None;
-        }
-
-        for i in 1..m {
-            let mut prev_score = 0;
-            let mut prev_j = 0;
-            let curr_char = pattern_chars[i];
-
-            for j in i..n {
-                #[allow(unused_assignments)]
-                let mut score = 0;
-                if text_chars[j] == curr_char {
-                    let bonus = if j == 0 {
-                        BONUS_BOUNDARY_WHITE
-                    } else {
-                        self.compute_bonus(text_chars[j - 1], text_chars[j])
-                    };
-
-                    let consec = if j > 0 && matches[j - 1] {
-                        consecutive[j - 1] + 1
-                    } else {
-                        1
-                    };
-                    consecutive[j] = consec;
-
-                    score = dp[i - 1][j - 1] + SCORE_MATCH;
-                    if consec > 1 {
-                        score += BONUS_CONSECUTIVE * (consec - 1);
-                    }
-                    score += bonus;
-
-                    matches[j] = true;
-                    prev_j = j;
-                } else {
-                    score = prev_score + SCORE_GAP_EXTENSION;
-                    consecutive[j] = 0;
-                }
-
-                dp[i][j] = score;
-                pos[i][j] = if matches[j] { j } else { prev_j };
-                prev_score = score;
-            }
-        }
-
-        let mut positions = Vec::with_capacity(m);
-        let mut j = n - 1;
-        for _i in (0..m).rev() {
-            while j > 0 && !matches[j] {
-                j -= 1;
-            }
-            if matches[j] {
-                positions.push(j);
-                if j > 0 {
-                    j -= 1;
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-        positions.reverse();
-
-        Some((dp[m - 1][n - 1], positions))
-    }
-}
-
-#[derive(Clone)]
 struct SearchIndex {
-    entries: Arc<RwLock<Vec<FileEntry>>>,
-    matcher: FuzzyMatcher,
+    entries: Arc<parking_lot::RwLock<Vec<FileEntry>>>,
+    matcher: Arc<SkimMatcherV2>,
     last_query: Arc<RwLock<String>>,
     last_results: Arc<RwLock<Vec<MatchResult>>>,
     config: crate::config::Config,
@@ -270,8 +83,8 @@ struct SearchIndex {
 impl SearchIndex {
     fn new(config: crate::config::Config) -> Self {
         Self {
-            entries: Arc::new(RwLock::new(Vec::new())),
-            matcher: FuzzyMatcher::new(false),
+            entries: Arc::new(RwLock::new(Vec::with_capacity(10000))),
+            matcher: Arc::new(SkimMatcherV2::default().ignore_case()),
             last_query: Arc::new(RwLock::new(String::new())),
             last_results: Arc::new(RwLock::new(Vec::new())),
             config,
@@ -279,6 +92,10 @@ impl SearchIndex {
     }
 
     fn should_ignore_path(&self, path: &std::path::Path) -> bool {
+        if self.config.listers.fuzzy.ignore_patterns.is_empty() {
+            return false;
+        }
+
         let path_str = path.to_string_lossy();
         self.config
             .listers
@@ -304,20 +121,28 @@ impl SearchIndex {
             })
     }
 
-    fn add_entries(&self, new_entries: Vec<FileEntry>) {
+    fn add_entries(&self, new_entries: Vec<FileEntry>) -> bool {
+        let filtered: Vec<_> = new_entries
+            .into_iter()
+            .filter(|entry| !self.should_ignore_path(&entry.path))
+            .collect();
+
+        if filtered.is_empty() {
+            return false;
+        }
+
         let mut entries = self.entries.write();
-        entries.extend(
-            new_entries
-                .into_iter()
-                .filter(|entry| !self.should_ignore_path(&entry.path)),
-        );
+        entries.extend(filtered);
+        true
     }
 
     fn search(&self, query: &str, max_results: usize) -> Vec<MatchResult> {
+        let entries = self.entries.read();
+
         if query.is_empty() {
-            let entries = self.entries.read();
             let mut results: Vec<_> = entries
                 .iter()
+                .take(max_results)
                 .map(|entry| MatchResult {
                     score: 0,
                     positions: vec![],
@@ -325,14 +150,7 @@ impl SearchIndex {
                 })
                 .collect();
 
-            results.par_sort_unstable_by(|a, b| {
-                a.entry
-                    .name_str
-                    .len()
-                    .cmp(&b.entry.name_str.len())
-                    .then_with(|| a.entry.name_str.cmp(&b.entry.name_str))
-            });
-            results.truncate(max_results);
+            results.par_sort_unstable_by(|a, b| a.entry.name_str.cmp(&b.entry.name_str));
             return results;
         }
 
@@ -343,13 +161,21 @@ impl SearchIndex {
                 if !cached_results.is_empty() {
                     let filtered: Vec<_> = cached_results
                         .iter()
+                        .take(max_results * 2)
                         .filter_map(|result| {
                             self.matcher
                                 .fuzzy_match(&result.entry.normalized_path, query)
-                                .map(|(score, positions)| MatchResult {
-                                    score,
-                                    positions,
-                                    entry: result.entry.clone(),
+                                .map(|score| {
+                                    let positions = self
+                                        .matcher
+                                        .fuzzy_indices(&result.entry.normalized_path, query)
+                                        .map(|(_, indices)| indices)
+                                        .unwrap_or_default();
+                                    MatchResult {
+                                        score,
+                                        positions,
+                                        entry: result.entry.clone(),
+                                    }
                                 })
                         })
                         .collect();
@@ -368,38 +194,27 @@ impl SearchIndex {
             }
         }
 
-        let entries = self.entries.read();
         let chunk_size = (entries.len() / WORKER_THREADS).max(CHUNK_SIZE);
-
         let results: Vec<_> = entries
             .par_chunks(chunk_size)
             .flat_map(|chunk| {
                 chunk
                     .iter()
                     .filter_map(|entry| {
-                        if let Some((score, positions)) = entry.score_cache.read().get(query) {
-                            return Some(MatchResult {
-                                score: *score,
-                                positions: positions.clone(),
-                                entry: entry.clone(),
-                            });
-                        }
-
-                        if let Some((score, positions)) =
-                            self.matcher.fuzzy_match(&entry.normalized_path, query)
-                        {
-                            entry
-                                .score_cache
-                                .write()
-                                .insert(query.to_string(), (score, positions.clone()));
-                            Some(MatchResult {
-                                score,
-                                positions,
-                                entry: entry.clone(),
+                        self.matcher
+                            .fuzzy_match(&entry.normalized_path, query)
+                            .map(|score| {
+                                let positions = self
+                                    .matcher
+                                    .fuzzy_indices(&entry.normalized_path, query)
+                                    .map(|(_, indices)| indices)
+                                    .unwrap_or_default();
+                                MatchResult {
+                                    score,
+                                    positions,
+                                    entry: entry.clone(),
+                                }
                             })
-                        } else {
-                            None
-                        }
                     })
                     .collect::<Vec<_>>()
             })
@@ -477,10 +292,12 @@ impl FuzzyLister {
 
             walker.run(|| {
                 let tx = tx.clone();
+                let total_indexed = Arc::clone(&total_indexed_clone);
                 Box::new(move |entry| {
                     if let Ok(entry) = entry {
                         if entry.file_type().map_or(false, |ft| ft.is_file()) {
                             let _ = tx.send(FileEntry::new(entry.into_path()));
+                            total_indexed.fetch_add(1, AtomicOrdering::SeqCst);
                         }
                     }
                     ignore::WalkState::Continue
@@ -491,14 +308,12 @@ impl FuzzyLister {
             while let Ok(entry) = rx.recv() {
                 batch.push(entry);
                 if batch.len() >= 1000 {
-                    total_indexed_clone.fetch_add(batch.len(), AtomicOrdering::SeqCst);
                     let _ = sender.send(batch);
                     batch = Vec::with_capacity(1000);
                 }
             }
 
             if !batch.is_empty() {
-                total_indexed_clone.fetch_add(batch.len(), AtomicOrdering::SeqCst);
                 let _ = sender.send(batch);
             }
 
@@ -506,35 +321,50 @@ impl FuzzyLister {
         });
 
         let mut last_query = String::new();
-        let mut last_update = std::time::Instant::now();
+        let mut last_query_time = std::time::Instant::now();
         let mut last_render = std::time::Instant::now();
-        let mut last_status_update = std::time::Instant::now();
-        let mut needs_render = true;
-        let mut initial_load_done = false;
+        let mut last_render_request = std::time::Instant::now();
+        let mut last_batch_check = std::time::Instant::now();
+        let mut pending_search = false;
+        let mut pending_render = false;
 
-        let update_interval = Duration::from_millis(150);
-        let render_interval = Duration::from_millis(33);
-        let status_update_interval = Duration::from_millis(100);
+        let search_debounce = Duration::from_millis(SEARCH_DEBOUNCE_MS);
+        let render_debounce = Duration::from_millis(16);
+        let render_interval = Duration::from_millis(RENDER_INTERVAL_MS);
+        let batch_check_interval = Duration::from_millis(100);
+
+        self.render_ui(&search_bar, &mut result_list)?;
+        let results = index.search("", 1000);
+        result_list.update_results(results);
 
         loop {
             let now = std::time::Instant::now();
+            let should_check_batch =
+                !pending_search && now.duration_since(last_batch_check) >= batch_check_interval;
 
-            while let Ok(batch) = receiver.try_recv() {
-                index.add_entries(batch);
-                let current_indexed = total_indexed.load(AtomicOrdering::SeqCst);
-
-                if now.duration_since(last_status_update) >= status_update_interval {
-                    result_list.total_indexed = current_indexed;
-                    self.render_status_bar(&result_list)?;
-                    last_status_update = now;
+            if should_check_batch {
+                let mut received_new_files = false;
+                while let Ok(batch) = receiver.try_recv() {
+                    if index.add_entries(batch) {
+                        received_new_files = true;
+                    }
                 }
 
-                if !initial_load_done && current_indexed > 100 {
-                    let results = index.search("", 1000);
-                    result_list.update_results(results);
-                    initial_load_done = true;
-                    needs_render = true;
+                if received_new_files {
+                    result_list.total_indexed = total_indexed.load(AtomicOrdering::SeqCst);
+                    result_list.indexing_complete = indexing_complete.load(AtomicOrdering::SeqCst);
+                    if !last_query.is_empty() {
+                        let results = index.search(&last_query, 1000);
+                        result_list.update_results(results);
+                    } else {
+                        let results = index.search("", 1000);
+                        result_list.update_results(results);
+                    }
+                    pending_render = true;
+                    last_render_request = now;
                 }
+
+                last_batch_check = now;
             }
 
             if event::poll(Duration::from_millis(1))? {
@@ -550,40 +380,44 @@ impl FuzzyLister {
                         }
                         (KeyCode::Up, KeyModifiers::NONE) => {
                             result_list.move_selection(-1);
-                            needs_render = true;
+                            pending_render = true;
+                            last_render_request = now;
                         }
                         (KeyCode::Down, KeyModifiers::NONE) => {
                             result_list.move_selection(1);
-                            needs_render = true;
+                            pending_render = true;
+                            last_render_request = now;
                         }
                         _ => {
                             if search_bar.handle_input(key.code, key.modifiers) {
                                 last_query = search_bar.query.clone();
-                                result_list.selected_idx = 0;
-                                result_list.window_start = 0;
-
-                                let results = index.search(&last_query, 1000);
-                                result_list.update_results(results);
-                                needs_render = true;
-                                last_update = now;
+                                last_query_time = now;
+                                pending_search = true;
+                                pending_render = true;
+                                last_render_request = now;
                             }
                         }
                     }
                 }
             }
 
-            if !last_query.is_empty() && now.duration_since(last_update) >= update_interval {
+            if pending_search && now.duration_since(last_query_time) >= search_debounce {
                 let results = index.search(&last_query, 1000);
-                if result_list.update_results(results) {
-                    needs_render = true;
-                }
-                last_update = now;
+                result_list.selected_idx = 0;
+                result_list.window_start = 0;
+                result_list.update_results(results);
+                pending_search = false;
+                pending_render = true;
+                last_render_request = now;
             }
 
-            if needs_render && now.duration_since(last_render) >= render_interval {
-                self.render_ui(&search_bar, &result_list)?;
+            if pending_render
+                && now.duration_since(last_render_request) >= render_debounce
+                && now.duration_since(last_render) >= render_interval
+            {
+                self.render_ui(&search_bar, &mut result_list)?;
                 last_render = now;
-                needs_render = false;
+                pending_render = false;
             }
 
             thread::sleep(Duration::from_millis(1));
@@ -595,114 +429,31 @@ impl FuzzyLister {
         Ok(selected_paths)
     }
 
-    fn render_ui(&self, search_bar: &SearchBar, result_list: &ResultList) -> io::Result<()> {
+    fn render_ui(&self, search_bar: &SearchBar, result_list: &mut ResultList) -> io::Result<()> {
         let mut stdout = stdout();
         let (width, height) = terminal::size()?;
         let available_height = height.saturating_sub(4) as usize;
 
-        static mut LAST_SEARCH_BAR: Option<String> = None;
-        let search_bar_rendered = search_bar.render(width);
-        let should_render_search = unsafe {
-            if LAST_SEARCH_BAR.as_ref() != Some(&search_bar_rendered) {
-                LAST_SEARCH_BAR = Some(search_bar_rendered.clone());
-                true
-            } else {
-                false
-            }
-        };
-
-        if should_render_search {
-            execute!(
-                stdout,
-                cursor::MoveTo(0, 0),
-                terminal::Clear(ClearType::CurrentLine),
-                style::Print(&search_bar_rendered),
-                cursor::MoveTo(0, 1),
-                terminal::Clear(ClearType::CurrentLine),
-                style::Print("─".repeat(width as usize).bright_black())
-            )?;
-        }
-
-        static mut LAST_RESULTS: Option<Vec<String>> = None;
-        let result_lines = result_list.render(width);
-
-        let should_render_full = unsafe {
-            if LAST_RESULTS.as_ref().map_or(true, |last| {
-                last.len() != result_lines.len()
-                    || last.iter().zip(result_lines.iter()).any(|(a, b)| a != b)
-            }) {
-                LAST_RESULTS = Some(result_lines.clone());
-                true
-            } else {
-                false
-            }
-        };
-
-        if should_render_full {
-            for i in 2..height.saturating_sub(1) {
-                execute!(
-                    stdout,
-                    cursor::MoveTo(0, i),
-                    terminal::Clear(ClearType::CurrentLine)
-                )?;
-            }
-
-            for (i, line) in result_lines.iter().take(available_height).enumerate() {
-                execute!(
-                    stdout,
-                    cursor::MoveTo(0, (i + 2) as u16),
-                    style::Print(line)
-                )?;
-            }
-        }
-
-        static mut LAST_STATUS: Option<String> = None;
-        let status_line = format!(
-            "{}{}{}",
-            " Total: ".bold(),
-            result_list.results.len().to_string().yellow(),
-            format!(
-                " (showing {}-{} of {})",
-                result_list.window_start + 1,
-                (result_list.window_start + available_height).min(result_list.results.len()),
-                result_list.total_indexed
-            )
-            .bright_black()
-        );
-
-        let should_render_status = unsafe {
-            if LAST_STATUS.as_ref() != Some(&status_line) {
-                LAST_STATUS = Some(status_line.clone());
-                true
-            } else {
-                false
-            }
-        };
-
-        if should_render_status {
-            execute!(
-                stdout,
-                cursor::MoveTo(0, height - 1),
-                terminal::Clear(ClearType::CurrentLine),
-                style::Print(&status_line)
-            )?;
-        }
-
         execute!(
             stdout,
-            cursor::MoveTo((search_bar.cursor_pos + 4) as u16, 0)
+            cursor::MoveTo(0, 0),
+            terminal::Clear(ClearType::All),
+            style::Print(&search_bar.render(width)),
+            cursor::MoveTo(0, 1),
+            style::Print("─".repeat(width as usize).bright_black())
         )?;
 
-        stdout.flush()
-    }
-
-    fn render_status_bar(&self, result_list: &ResultList) -> io::Result<()> {
-        let mut stdout = stdout();
-        let (_, height) = terminal::size()?;
-        let available_height = height.saturating_sub(4) as usize;
+        let result_lines = result_list.render(width);
+        for (i, line) in result_lines.iter().take(available_height).enumerate() {
+            execute!(
+                stdout,
+                cursor::MoveTo(0, (i + 2) as u16),
+                style::Print(line)
+            )?;
+        }
 
         let status_line = format!(
-            "{}{}{}",
+            "{}{}{}{}",
             " Total: ".bold(),
             result_list.results.len().to_string().yellow(),
             format!(
@@ -711,14 +462,20 @@ impl FuzzyLister {
                 (result_list.window_start + available_height).min(result_list.results.len()),
                 result_list.total_indexed
             )
-            .bright_black()
+            .bright_black(),
+            if !result_list.indexing_complete {
+                format!(" • {}", "Indexing...".bright_yellow())
+            } else {
+                "".to_string()
+            }
         );
 
         execute!(
             stdout,
             cursor::MoveTo(0, height - 1),
             terminal::Clear(ClearType::CurrentLine),
-            style::Print(&status_line)
+            style::Print(&status_line),
+            cursor::MoveTo((search_bar.cursor_pos + 4) as u16, 0)
         )?;
 
         stdout.flush()
@@ -831,6 +588,7 @@ struct ResultList {
     window_start: usize,
     max_visible: usize,
     total_indexed: usize,
+    indexing_complete: bool,
 }
 
 impl ResultList {
@@ -841,24 +599,19 @@ impl ResultList {
             window_start: 0,
             max_visible,
             total_indexed: 0,
+            indexing_complete: false,
         }
     }
 
-    fn get_selected(&self) -> Option<&MatchResult> {
+    fn get_selected(&mut self) -> Option<&MatchResult> {
         self.results.get(self.selected_idx)
     }
 
     fn update_results(&mut self, results: Vec<MatchResult>) -> bool {
-        if self.results.len() != results.len() {
-            self.results = results;
-            self.selected_idx = self.selected_idx.min(self.results.len().saturating_sub(1));
-            self.update_window();
-            return true;
-        }
-
-        let changed = self.results.iter().zip(results.iter()).any(|(a, b)| {
-            a.score != b.score || a.positions != b.positions || a.entry.path != b.entry.path
-        });
+        let changed = self.results.len() != results.len()
+            || self.results.iter().zip(results.iter()).any(|(a, b)| {
+                a.score != b.score || a.positions != b.positions || a.entry.path != b.entry.path
+            });
 
         if changed {
             self.results = results;
@@ -885,7 +638,7 @@ impl ResultList {
         }
     }
 
-    fn render(&self, width: u16) -> Vec<String> {
+    fn render(&mut self, width: u16) -> Vec<String> {
         let theme = get_theme();
         let max_width = width as usize;
 
@@ -893,8 +646,11 @@ impl ResultList {
             return vec![format!(
                 "  {} {}",
                 "".color(color_value_to_color(&theme.colors.directory)),
-                if self.total_indexed == 0 {
-                    "Indexing files...".to_string()
+                if !self.indexing_complete {
+                    format!(
+                        "Indexing files... {} files found",
+                        self.total_indexed.to_string().yellow()
+                    )
                 } else {
                     format!("No matches found (indexed {} files)", self.total_indexed)
                 }
@@ -924,25 +680,19 @@ impl ResultList {
                     if components.len() <= 2 {
                         path_str.to_string()
                     } else {
-                        let prefix = components[0..components.len() - 2]
-                            .iter()
-                            .map(|c| c.as_os_str().to_string_lossy())
-                            .collect::<Vec<_>>();
-
-                        if prefix.len() > 1 {
-                            let first = prefix[0].to_string();
-                            let last = if prefix.len() > 2 {
-                                prefix.last().unwrap().to_string()
-                            } else {
-                                prefix[1].to_string()
-                            };
-                            format!("{}/.../{}", first, last)
-                        } else {
-                            prefix.join("/")
+                        let mut path_parts = Vec::new();
+                        path_parts.push(components[0].as_os_str().to_string_lossy().to_string());
+                        if components.len() > 3 {
+                            path_parts.push("...".to_string());
                         }
-                        .chars()
-                        .take(max_width.saturating_sub(30))
-                        .collect::<String>()
+                        path_parts.push(
+                            components[components.len() - 2]
+                                .as_os_str()
+                                .to_string_lossy()
+                                .to_string(),
+                        );
+                        path_parts.push(file_name.to_string());
+                        path_parts.join("/")
                     }
                 } else {
                     path_str.to_string()

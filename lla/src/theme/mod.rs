@@ -1,12 +1,16 @@
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{LlaError, Result};
+use crate::utils::color::ColorState;
 use colored::Color;
 use colored::*;
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::Select;
+use lla_plugin_utils::ui::components::LlaDialoguerTheme;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tempfile;
 
 static NO_COLOR: AtomicBool = AtomicBool::new(false);
 
@@ -458,20 +462,7 @@ pub fn select_theme(config: &mut Config) -> Result<()> {
         })
         .collect();
 
-    let theme = ColorfulTheme {
-        active_item_style: dialoguer::console::Style::new().cyan().bold(),
-        active_item_prefix: dialoguer::console::style("│ ⦿ ".to_string())
-            .for_stderr()
-            .cyan(),
-        prompt_prefix: dialoguer::console::style("│ ".to_string())
-            .for_stderr()
-            .cyan(),
-        prompt_style: dialoguer::console::Style::new().for_stderr().cyan(),
-        success_prefix: dialoguer::console::style("│ ".to_string())
-            .for_stderr()
-            .cyan(),
-        ..ColorfulTheme::default()
-    };
+    let theme = LlaDialoguerTheme::default();
 
     println!("\n{}", "Theme Manager".cyan().bold());
     println!(
@@ -489,6 +480,154 @@ pub fn select_theme(config: &mut Config) -> Result<()> {
     if selected_theme != &config.theme {
         config.set_value("theme", selected_theme)?;
         println!("✓ {} theme activated", selected_theme.green());
+    }
+
+    Ok(())
+}
+
+pub fn pull_themes(color_state: &ColorState) -> Result<()> {
+    let config_dir = dirs::home_dir()
+        .ok_or_else(|| LlaError::Other("Could not find home directory".into()))?
+        .join(".config")
+        .join("lla");
+    let themes_dir = config_dir.join("themes");
+
+    fs::create_dir_all(&themes_dir)?;
+    let temp_dir = tempfile::tempdir()?;
+    if color_state.is_enabled() {
+        println!("{}", "Pulling themes from repository...".cyan());
+    } else {
+        println!("Pulling themes from repository...");
+    }
+
+    let status = Command::new("git")
+        .args(&[
+            "clone",
+            "--depth=1",
+            "https://github.com/triyanox/lla.git",
+            temp_dir.path().to_str().unwrap(),
+        ])
+        .status()?;
+
+    if !status.success() {
+        return Err(LlaError::Other("Failed to clone repository".into()));
+    }
+
+    let repo_themes_dir = temp_dir.path().join("themes");
+    if repo_themes_dir.exists() {
+        for entry in fs::read_dir(repo_themes_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("toml") {
+                let dest_path = themes_dir.join(path.file_name().unwrap());
+                fs::copy(&path, &dest_path)?;
+                if color_state.is_enabled() {
+                    println!(
+                        "✓ Installed theme: {}",
+                        path.file_name().unwrap().to_string_lossy().green()
+                    );
+                } else {
+                    println!(
+                        "✓ Installed theme: {}",
+                        path.file_name().unwrap().to_string_lossy()
+                    );
+                }
+            }
+        }
+    }
+
+    if color_state.is_enabled() {
+        println!("\n{}", "Themes installed successfully!".green());
+        println!("Use {} to select a theme", "lla theme".cyan());
+    } else {
+        println!("\nThemes installed successfully!");
+        println!("Use 'lla theme' to select a theme");
+    }
+
+    Ok(())
+}
+
+pub fn install_themes(path: &str, color_state: &ColorState) -> Result<()> {
+    let config_dir = dirs::home_dir()
+        .ok_or_else(|| LlaError::Other("Could not find home directory".into()))?
+        .join(".config")
+        .join("lla");
+    let themes_dir = config_dir.join("themes");
+
+    // Create themes directory if it doesn't exist
+    fs::create_dir_all(&themes_dir)?;
+
+    let path = std::path::Path::new(path);
+    if !path.exists() {
+        return Err(LlaError::Other(format!(
+            "Path does not exist: {}",
+            path.display()
+        )));
+    }
+
+    let mut installed_count = 0;
+
+    if path.is_file() {
+        if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+            let dest_path = themes_dir.join(path.file_name().unwrap());
+            fs::copy(path, &dest_path)?;
+            if color_state.is_enabled() {
+                println!(
+                    "✓ Installed theme: {}",
+                    path.file_name().unwrap().to_string_lossy().green()
+                );
+            } else {
+                println!(
+                    "✓ Installed theme: {}",
+                    path.file_name().unwrap().to_string_lossy()
+                );
+            }
+            installed_count += 1;
+        } else {
+            return Err(LlaError::Other(
+                "Theme file must have .toml extension".into(),
+            ));
+        }
+    } else if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("toml") {
+                let dest_path = themes_dir.join(path.file_name().unwrap());
+                fs::copy(&path, &dest_path)?;
+                if color_state.is_enabled() {
+                    println!(
+                        "✓ Installed theme: {}",
+                        path.file_name().unwrap().to_string_lossy().green()
+                    );
+                } else {
+                    println!(
+                        "✓ Installed theme: {}",
+                        path.file_name().unwrap().to_string_lossy()
+                    );
+                }
+                installed_count += 1;
+            }
+        }
+    }
+
+    if installed_count > 0 {
+        if color_state.is_enabled() {
+            println!(
+                "\n{}",
+                format!("{} theme(s) installed successfully!", installed_count).green()
+            );
+            println!("Use {} to select a theme", "lla theme".cyan());
+        } else {
+            println!("\n{} theme(s) installed successfully!", installed_count);
+            println!("Use 'lla theme' to select a theme");
+        }
+    } else {
+        if color_state.is_enabled() {
+            println!("{}", "No themes were installed".yellow());
+        } else {
+            println!("No themes were installed");
+        }
     }
 
     Ok(())

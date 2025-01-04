@@ -1,4 +1,4 @@
-# LLA File Hash Plugin
+# lla File Hash Plugin
 
 A high-performance file hashing plugin for `lla` that calculates secure cryptographic hashes (SHA-1 and SHA-256).
 

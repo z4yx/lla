@@ -588,6 +588,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "file_copier"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "dialoguer",
+ "dirs",
+ "lazy_static",
+ "lla_plugin_interface",
+ "lla_plugin_utils",
+ "parking_lot",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "file_hash"
 version = "0.3.1"
 dependencies = [
@@ -616,6 +631,50 @@ dependencies = [
  "parking_lot",
  "prost",
  "serde",
+]
+
+[[package]]
+name = "file_mover"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "dialoguer",
+ "dirs",
+ "lazy_static",
+ "lla_plugin_interface",
+ "lla_plugin_utils",
+ "parking_lot",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "file_organizer"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "colored",
+ "dirs",
+ "lazy_static",
+ "lla_plugin_interface",
+ "lla_plugin_utils",
+ "parking_lot",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "file_remover"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "dialoguer",
+ "lazy_static",
+ "lla_plugin_interface",
+ "lla_plugin_utils",
+ "parking_lot",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -993,7 +1052,7 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "lla"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "atty",
  "chrono",
@@ -1006,11 +1065,13 @@ dependencies = [
  "dashmap",
  "dialoguer",
  "dirs",
+ "fuzzy-matcher",
  "glob",
  "ignore",
  "indicatif",
  "libloading",
  "lla_plugin_interface",
+ "lla_plugin_utils",
  "num_cpus",
  "once_cell",
  "parking_lot",
@@ -1031,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_interface"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "prost",
  "prost-build",
@@ -1040,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_utils"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "bytes",
  "chrono",

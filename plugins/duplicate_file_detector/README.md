@@ -1,4 +1,4 @@
-# LLA Duplicate File Detector Plugin
+# lla Duplicate File Detector Plugin
 
 A plugin for `lla` that identifies identical files using secure hash comparison.
 

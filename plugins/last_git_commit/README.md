@@ -1,4 +1,4 @@
-# LLA Last Git Commit Plugin
+# lla Last Git Commit Plugin
 
 Git history plugin for `lla` providing real-time commit tracking with rich formatting.
 

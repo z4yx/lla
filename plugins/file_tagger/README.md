@@ -1,4 +1,4 @@
-# LLA File Tagger Plugin
+# lla File Tagger Plugin
 
 A file tagging plugin for `lla` that provides persistent tag management.
 

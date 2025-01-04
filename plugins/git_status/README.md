@@ -1,4 +1,4 @@
-# LLA Git Status Plugin
+# lla Git Status Plugin
 
 Git integration plugin for `lla` providing real-time repository status with rich formatting.
 

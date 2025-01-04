@@ -1,4 +1,4 @@
-# LLA Size Visualizer Plugin
+# lla Size Visualizer Plugin
 
 File size visualization plugin for `lla` providing real-time size analysis with rich formatting.
 

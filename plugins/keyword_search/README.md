@@ -1,4 +1,4 @@
-# LLA Keyword Search Plugin
+# lla Keyword Search Plugin
 
 High-performance keyword search plugin for `lla` with interactive search and rich display features.
 

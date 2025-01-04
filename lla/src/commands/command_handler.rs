@@ -149,6 +149,8 @@ pub fn handle_command(
             )
         }
         Some(Command::Theme) => crate::theme::select_theme(config),
+        Some(Command::ThemePull) => crate::theme::pull_themes(&color_state),
+        Some(Command::ThemeInstall(path)) => crate::theme::install_themes(&path, &color_state),
         Some(Command::Shortcut(action)) => handle_shortcut_action(action, config, &color_state),
         Some(Command::Install(source)) => handle_install(source, args),
         Some(Command::Update(plugin_name)) => {
