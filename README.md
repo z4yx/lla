@@ -7,6 +7,7 @@
 <p align="center">
     Modern, customizable, feature-rich and extensible `ls` replacement.
     <br />
+   <br />
     <a href="https://lla.chaqchase.com">Documentation</a>
     ·
     <a href="#features">Features</a>
