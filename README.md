@@ -38,6 +38,21 @@ lla is a modern `ls` replacement that transforms how developers interact with th
 
 ## Installation
 
+### Using Installation Script
+
+The easiest way to install lla is using our installation script:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/chaqchase/lla/main/install.sh | bash
+```
+
+This script will automatically:
+
+- Detect your OS and architecture
+- Download the appropriate binary
+- Verify the checksum
+- Install lla to `/usr/local/bin`
+
 ### Using Package Manager
 
 | Package Manager / Platform | Command             |
