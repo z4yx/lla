@@ -1,6 +1,3 @@
-
-
-
 <h1>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/f7d26ac0-6d4c-4d66-9a4c-046158b20d24" alt="Logo" width="128">
