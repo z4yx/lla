@@ -1,6 +1,6 @@
 # LLA Plugins
 
-This document lists all available plugins for LLA and provides installation instructions.
+This is a list of all the plugins available for LLA.
 
 ## Installation
 
@@ -10,331 +10,31 @@ You can install all plugins at once using:
 lla install --git https://github.com/triyanox/lla
 ```
 
-Or you can install individual plugins as described below.
+or you can manually install them like this:
+
+```bash
+git clone https://github.com/triyanox/lla
+cd lla/plugins/
+cargo build --release
+```
+
+then copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
 
 ## Available Plugins
 
-- [categorizer](#categorizer): Categorizes files based on their extensions and metadata
-- [code_complexity](#code_complexity): Analyzes code complexity using various metrics
-- [code_snippet_extractor](#code_snippet_extractor): A plugin for extracting and managing code snippets
-- [dirs_meta](#dirs_meta): Shows directories metadata
-- [duplicate_file_detector](#duplicate_file_detector): A plugin for the LLA that detects duplicate files.
-- [file_hash](#file_hash): Displays the hash of each file
-- [file_meta](#file_meta): Displays the file metadata of each file
-- [file_tagger](#file_tagger): A plugin for tagging files and filtering by tags
-- [git_status](#git_status): Shows the git status of each file
-- [keyword_search](#keyword_search): Searches file contents for user-specified keywords
-- [last_git_commit](#last_git_commit): A plugin for the LLA that provides the last git commit hash
-- [sizeviz](#sizeviz): File size visualizer plugin for LLA
-
-### categorizer
-
-**Description:** Categorizes files based on their extensions and metadata
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/categorizer/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/categorizer/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/categorizer/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### code_complexity
-
-**Description:** Analyzes code complexity using various metrics
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/code_complexity/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/code_complexity/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/code_complexity/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### code_snippet_extractor
-
-**Description:** A plugin for extracting and managing code snippets
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/code_snippet_extractor/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/code_snippet_extractor/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/code_snippet_extractor/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### dirs
-
-**Description:** Shows directories metadata
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/dirs/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/dirs/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/dirs/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### duplicate_file_detector
-
-**Description:** A plugin for the LLA that detects duplicate files.
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/duplicate_file_detector/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/duplicate_file_detector/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/duplicate_file_detector/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### file_hash
-
-**Description:** Displays the hash of each file
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/file_hash/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/file_hash/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/file_hash/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### file_meta
-
-**Description:** Displays the file metadata of each file
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/file_meta/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/file_meta/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/file_meta/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### file_tagger
-
-**Description:** A plugin for tagging files and filtering by tags
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/file_tagger/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/file_tagger/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/file_tagger/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### git_status
-
-**Description:** Shows the git status of each file
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/git_status/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/git_status/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/git_status/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### keyword_search
-
-**Description:** Searches file contents for user-specified keywords
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/keyword_search/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/keyword_search/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/keyword_search/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### last_git_commit
-
-**Description:** A plugin for the LLA that provides the last git commit hash
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/last_git_commit/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/last_git_commit/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/last_git_commit/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
-
-### sizeviz
-
-**Description:** File size visualizer plugin for LLA
-
-**Version:** 0.3.1
-
-**Documentation:** [Documentation](plugins/sizeviz/README.md)
-
-**Installation Options:**
-
-1. Using LLA install command:
-
-```bash
-lla install --dir path/to/lla/plugins/sizeviz/
-```
-
-2. Manual installation:
-
-```bash
-git clone https://github.com/triyanox/lla
-cd lla/plugins/sizeviz/
-cargo build --release
-```
-
-Then, copy the generated `.so`, `.dll`, or `.dylib` file from the `target/release` directory to your LLA plugins directory.
+- [categorizer](https://github.com/chaqchase/lla/tree/main/plugins/categorizer): Categorizes files based on their extensions and metadata
+- [code_complexity](https://github.com/chaqchase/lla/tree/main/plugins/code_complexity): Analyzes code complexity using various metrics
+- [code_snippet_extractor](https://github.com/chaqchase/lla/tree/main/plugins/code_snippet_extractor): A plugin for extracting and managing code snippets
+- [dirs_meta](https://github.com/chaqchase/lla/tree/main/plugins/dirs_meta): Shows directories metadata
+- [duplicate_file_detector](https://github.com/chaqchase/lla/tree/main/plugins/duplicate_file_detector): A plugin for the LLA that detects duplicate files.
+- [file_hash](https://github.com/chaqchase/lla/tree/main/plugins/file_hash): Displays the hash of each file
+- [file_meta](https://github.com/chaqchase/lla/tree/main/plugins/file_meta): Displays the file metadata of each file
+- [file_tagger](https://github.com/chaqchase/lla/tree/main/plugins/file_tagger): A plugin for tagging files and filtering by tags
+- [git_status](https://github.com/chaqchase/lla/tree/main/plugins/git_status): Shows the git status of each file
+- [keyword_search](https://github.com/chaqchase/lla/tree/main/plugins/keyword_search): Searches file contents for user-specified keywords
+- [last_git_commit](https://github.com/chaqchase/lla/tree/main/plugins/last_git_commit): A plugin for the LLA that provides the last git commit hash
+- [sizeviz](https://github.com/chaqchase/lla/tree/main/plugins/sizeviz): File size visualizer plugin for LLA
+- [file_mover](https://github.com/chaqchase/lla/tree/main/plugins/file_mover): A plugin that provides an intuitive clipboard-based interface for moving files and directories.
+- [file_copier](https://github.com/chaqchase/lla/tree/main/plugins/file_copier): A plugin that provides an intuitive clipboard-based interface for copying files and directories.
+- [file_remover](https://github.com/chaqchase/lla/tree/main/plugins/file_remover): A plugin that provides an interactive interface for safely removing files and directories.
+- [file_organizer](https://github.com/chaqchase/lla/tree/main/plugins/file_organizer): A plugin for organizing files using various strategies
