@@ -2,11 +2,11 @@
 name = "lla"
 version.workspace = true
 edition.workspace = true
-description = "A lightweight ls replacement"
+description = "Blazing Fast and highly customizable ls Replacement with Superpowers"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["cli", "ls", "lightweight"]
+keywords = ["cli", "ls", "blazing-fast"]
 categories = ["command-line-utilities"]
 exclude = ["docs"]
 

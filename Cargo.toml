@@ -10,7 +10,7 @@ categories = ["utilities", "file-system", "cli", "file-management"]
 edition = "2021"
 license = "MIT"
 keywords = ["ls", "file-system", "cli", "file-management"]
-repository = "https://github.com/triyanox/lla"
+repository = "https://github.com/chaqchase/lla"
 
 [workspace.dependencies]
 clap = "3.2.25"
