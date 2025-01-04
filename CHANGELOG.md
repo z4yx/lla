@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2025-01-04
+
+### Added
+
+- New file management plugins:
+
+  - `file_copier`: Clipboard-based file copying functionality
+  - `file_mover`: Clipboard-based file moving operations
+  - `file_remover`: Interactive file and directory removal
+  - `file_organizer`: File organization with multiple strategies (extension, date, type, size)
+
+- Enhanced theme system:
+
+  - New `LlaDialoguerTheme` for consistent UI styling
+  - Additional customization options for symbols and padding
+  - New theme management commands: `theme pull` and `theme install`
+  - Improved theme integration across all plugins
+
+- Improved search capabilities:
+  - Enhanced fuzzy matching functionality
+  - Optimized `SearchIndex` for better search operations
+
+### Changed
+
+- Standardized capitalization of 'lla' across documentation
+- Enhanced release workflow with package generation
+- Improved plugin documentation and installation instructions
+- Integrated `lla_plugin_utils` across plugins for better consistency
+
+### Fixed
+
+- Coloring issue for icons in the tree format
+
 ## [0.3.8] - 2024-12-21
 
 ### Added

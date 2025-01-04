@@ -184,7 +184,7 @@ Interactive file discovery:
 lla --fuzzy
 ```
 
-<img src="https://github.com/user-attachments/assets/2b314fa6-712e-41fd-be0b-3d3eb1db3f85" className="rounded-2xl" alt="fuzzy" />
+<img src="https://github.com/user-attachments/assets/ec946fd2-34d7-40b7-b951-ffd9c4009ad6" className="rounded-2xl" alt="fuzzy" />
 
 #### Deep Directory Exploration (Recursive)
 
