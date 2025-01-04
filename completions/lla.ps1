@@ -174,6 +174,22 @@ Register-ArgumentCompleter -Native -CommandName 'lla' -ScriptBlock {
         'lla;theme' {
             [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
             [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('pull', 'pull', [CompletionResultType]::ParameterValue, 'Pull and install themes from the official repository')
+            [CompletionResult]::new('install', 'install', [CompletionResultType]::ParameterValue, 'Install theme(s) from a file or directory')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'lla;theme;pull' {
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+            break
+        }
+        'lla;theme;install' {
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+            break
+        }
+        'lla;theme;help' {
             break
         }
         'lla;help' {
