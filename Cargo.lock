@@ -649,6 +649,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "file_organizer"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "colored",
+ "dirs",
+ "lazy_static",
+ "lla_plugin_interface",
+ "lla_plugin_utils",
+ "parking_lot",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "file_remover"
 version = "0.1.0"
 dependencies = [
