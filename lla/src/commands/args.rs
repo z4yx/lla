@@ -51,6 +51,8 @@ pub enum Command {
     Shortcut(ShortcutAction),
     GenerateCompletion(Shell, Option<String>, Option<String>),
     Theme,
+    ThemePull,
+    ThemeInstall(String),
 }
 
 pub enum InstallSource {
@@ -406,7 +408,24 @@ impl Args {
                             .takes_value(true),
                     ),
             )
-            .subcommand(SubCommand::with_name("theme").about("Interactive theme manager"))
+            .subcommand(
+                SubCommand::with_name("theme")
+                    .about("Interactive theme manager")
+                    .subcommand(
+                        SubCommand::with_name("pull")
+                            .about("Pull and install themes from the official repository")
+                    )
+                    .subcommand(
+                        SubCommand::with_name("install")
+                            .about("Install theme(s) from a file or directory")
+                            .arg(
+                                Arg::with_name("path")
+                                    .help("Path to theme file or directory containing themes")
+                                    .required(true)
+                                    .index(1),
+                            )
+                    ),
+            )
     }
 
     pub fn parse(config: &Config) -> Self {
@@ -478,8 +497,16 @@ impl Args {
                 completion_matches.value_of("path").map(String::from),
                 completion_matches.value_of("output").map(String::from),
             ))
-        } else if matches.subcommand_matches("theme").is_some() {
-            Some(Command::Theme)
+        } else if let Some(theme_matches) = matches.subcommand_matches("theme") {
+            if theme_matches.subcommand_matches("pull").is_some() {
+                Some(Command::ThemePull)
+            } else if let Some(install_matches) = theme_matches.subcommand_matches("install") {
+                Some(Command::ThemeInstall(
+                    install_matches.value_of("path").unwrap().to_string(),
+                ))
+            } else {
+                Some(Command::Theme)
+            }
         } else if let Some(matches) = matches.subcommand_matches("shortcut") {
             if let Some(add_matches) = matches.subcommand_matches("add") {
                 Some(Command::Shortcut(ShortcutAction::Add(

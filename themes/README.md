@@ -2,6 +2,20 @@
 
 lla provides a powerful and flexible theming system that allows you to customize the appearance of your file listings. Each theme is defined in a TOML file and can customize colors for files, folders, permissions, and more.
 
+lla ships with a default theme collection, you can pull all builtin themes with the following command:
+
+```bash
+lla theme pull # pull all builtin themes
+```
+
+you can also install custom themes using the following command:
+
+```bash
+lla theme install /path/to/theme.toml
+# or a directory with multiple themes
+lla theme install /path/to/themes/
+```
+
 ## Table of Contents
 
 - [Theme Location](#theme-location)
