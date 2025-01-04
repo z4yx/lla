@@ -70,4 +70,9 @@ complete -c lla -n "__fish_seen_subcommand_from shortcut; and __fish_seen_subcom
 complete -c lla -n "__fish_seen_subcommand_from completion" -s p -l path -d 'Custom installation path for the completion script' -r
 complete -c lla -n "__fish_seen_subcommand_from completion" -s o -l output -d 'Output path for the completion script (prints to stdout if not specified)' -r
 complete -c lla -n "__fish_seen_subcommand_from completion" -s h -l help -d 'Print help information'
-complete -c lla -n "__fish_seen_subcommand_from theme" -s h -l help -d 'Print help information'
+complete -c lla -n "__fish_seen_subcommand_from theme; and not __fish_seen_subcommand_from pull; and not __fish_seen_subcommand_from install; and not __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+complete -c lla -n "__fish_seen_subcommand_from theme; and not __fish_seen_subcommand_from pull; and not __fish_seen_subcommand_from install; and not __fish_seen_subcommand_from help" -f -a "pull" -d 'Pull and install themes from the official repository'
+complete -c lla -n "__fish_seen_subcommand_from theme; and not __fish_seen_subcommand_from pull; and not __fish_seen_subcommand_from install; and not __fish_seen_subcommand_from help" -f -a "install" -d 'Install theme(s) from a file or directory'
+complete -c lla -n "__fish_seen_subcommand_from theme; and not __fish_seen_subcommand_from pull; and not __fish_seen_subcommand_from install; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c lla -n "__fish_seen_subcommand_from theme; and __fish_seen_subcommand_from pull" -s h -l help -d 'Print help information'
+complete -c lla -n "__fish_seen_subcommand_from theme; and __fish_seen_subcommand_from install" -s h -l help -d 'Print help information'

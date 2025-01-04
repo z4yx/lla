@@ -156,6 +156,19 @@ set edit:completion:arg-completer[lla] = {|@words|
         &'lla;theme'= {
             cand -h 'Print help information'
             cand --help 'Print help information'
+            cand pull 'Pull and install themes from the official repository'
+            cand install 'Install theme(s) from a file or directory'
+            cand help 'Print this message or the help of the given subcommand(s)'
+        }
+        &'lla;theme;pull'= {
+            cand -h 'Print help information'
+            cand --help 'Print help information'
+        }
+        &'lla;theme;install'= {
+            cand -h 'Print help information'
+            cand --help 'Print help information'
+        }
+        &'lla;theme;help'= {
         }
         &'lla;help'= {
         }
