@@ -1,4 +1,4 @@
-# LLA File Metadata Plugin
+# lla File Metadata Plugin
 
 A file metadata plugin for `lla` that provides comprehensive file information with rich formatting.
 

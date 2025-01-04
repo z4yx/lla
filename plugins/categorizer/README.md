@@ -1,4 +1,4 @@
-# LLA Categorizer Plugin
+# lla Categorizer Plugin
 
 File categorization plugin for `lla` that organizes files based on extensions, with hierarchical categorization support.
 

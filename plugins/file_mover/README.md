@@ -1,4 +1,4 @@
-# LLA File Mover Plugin
+# lla File Mover Plugin
 
 A plugin for `lla` that provides an intuitive clipboard-based interface for moving files and directories.
 

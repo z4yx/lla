@@ -1,4 +1,4 @@
-# LLA File Remover Plugin
+# lla File Remover Plugin
 
 A plugin for `lla` that provides an interactive interface for safely removing files and directories.
 

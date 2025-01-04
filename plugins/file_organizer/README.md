@@ -1,4 +1,4 @@
-# LLA File Organizer Plugin
+# lla File Organizer Plugin
 
 A plugin for `lla` that organizes files in directories using various strategies. It provides flexible, configurable organization methods with preview capabilities.
 

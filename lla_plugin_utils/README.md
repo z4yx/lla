@@ -1,6 +1,6 @@
 # lla_plugin_utils
 
-Utility library for building LLA plugins.
+Utility library for building lla plugins.
 
 ## Core Components
 

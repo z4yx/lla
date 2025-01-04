@@ -1,4 +1,4 @@
-# LLA File Copier Plugin
+# lla File Copier Plugin
 
 A plugin for `lla` that provides an intuitive clipboard-based interface for copying files and directories.
 

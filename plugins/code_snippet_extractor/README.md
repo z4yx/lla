@@ -1,4 +1,4 @@
-# LLA Code Snippet Extractor Plugin
+# lla Code Snippet Extractor Plugin
 
 A plugin for `lla` that extracts, organizes, and manages code snippets with metadata and search capabilities.
 

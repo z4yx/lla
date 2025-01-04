@@ -1,4 +1,4 @@
-# LLA Code Complexity Plugin
+# lla Code Complexity Plugin
 
 A code analysis plugin for `lla` that performs real-time complexity analysis of source code.
 

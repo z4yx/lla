@@ -1,4 +1,4 @@
-# LLA Directory Metadata Plugin
+# lla Directory Metadata Plugin
 
 Real-time directory statistics with intelligent caching.
 

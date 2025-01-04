@@ -167,7 +167,7 @@ impl Config {
 
     fn generate_config_content(&self) -> String {
         let mut content = format!(
-            r#"# LLA Configuration File
+            r#"# lla Configuration File
 # This file controls the behavior and appearance of the lla command
 
 # Default sorting method for file listings
