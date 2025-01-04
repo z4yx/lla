@@ -1065,6 +1065,7 @@ dependencies = [
  "dashmap",
  "dialoguer",
  "dirs",
+ "fuzzy-matcher",
  "glob",
  "ignore",
  "indicatif",
