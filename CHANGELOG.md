@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced fuzzy matching functionality
   - Optimized `SearchIndex` for better search operations
 
+### Documentation
+
+- A new documentation website is available at [lla.chaqchase.com](https://lla.chaqchase.com)
+
 ### Changed
 
 - Standardized capitalization of 'lla' across documentation
