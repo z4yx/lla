@@ -4,12 +4,14 @@ complete -c lla -n "__fish_use_subcommand" -s f -l filter -d 'Filter files by na
 complete -c lla -n "__fish_use_subcommand" -l enable-plugin -d 'Enable specific plugins' -r
 complete -c lla -n "__fish_use_subcommand" -l disable-plugin -d 'Disable specific plugins' -r
 complete -c lla -n "__fish_use_subcommand" -l plugins-dir -d 'Specify the plugins directory' -r
+complete -c lla -n "__fish_use_subcommand" -l permission-format -d 'Format for displaying permissions (symbolic, octal, binary, verbose, compact)' -r -f -a "{symbolic	,octal	,binary	,verbose	,compact	}"
 complete -c lla -n "__fish_use_subcommand" -s h -l help -d 'Print help information'
 complete -c lla -n "__fish_use_subcommand" -s V -l version -d 'Print version information'
 complete -c lla -n "__fish_use_subcommand" -s l -l long -d 'Use long listing format (overrides config format)'
 complete -c lla -n "__fish_use_subcommand" -s t -l tree -d 'Use tree listing format (overrides config format)'
 complete -c lla -n "__fish_use_subcommand" -s T -l table -d 'Use table listing format (overrides config format)'
 complete -c lla -n "__fish_use_subcommand" -s g -l grid -d 'Use grid listing format (overrides config format)'
+complete -c lla -n "__fish_use_subcommand" -l grid-ignore -d 'Use grid view ignoring terminal width (Warning: output may extend beyond screen width)'
 complete -c lla -n "__fish_use_subcommand" -s S -l sizemap -d 'Show visual representation of file sizes (overrides config format)'
 complete -c lla -n "__fish_use_subcommand" -l timeline -d 'Group files by time periods (overrides config format)'
 complete -c lla -n "__fish_use_subcommand" -s G -l git -d 'Show git status and information (overrides config format)'
