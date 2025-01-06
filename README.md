@@ -137,7 +137,8 @@ lla -T
 Space-efficient layout for dense directories:
 
 ```bash
-lla -g
+lla -g                  # Basic grid view
+lla -g --grid-ignore    # Grid view ignoring terminal width (Warning: may extend beyond screen)
 ```
 
 <img src="https://github.com/user-attachments/assets/b81d01ea-b830-4833-8791-7b62ff9137df" className="rounded-2xl" alt="grid" />
@@ -206,13 +207,13 @@ will show a detailed listing of all files and directories in the current directo
 
 #### Basic Views
 
-| Command   | Short | Description                             | Example  |
-| --------- | ----- | --------------------------------------- | -------- |
-| (default) |       | List current directory                  | `lla`    |
-| `--long`  | `-l`  | Detailed file information with metadata | `lla -l` |
-| `--tree`  | `-t`  | Hierarchical directory visualization    | `lla -t` |
-| `--table` | `-T`  | Structured data display                 | `lla -T` |
-| `--grid`  | `-g`  | Organized grid layout                   | `lla -g` |
+| Command   | Short | Description                                                                                                       | Example  |
+| --------- | ----- | ----------------------------------------------------------------------------------------------------------------- | -------- |
+| (default) |       | List current directory                                                                                            | `lla`    |
+| `--long`  | `-l`  | Detailed file information with metadata                                                                           | `lla -l` |
+| `--tree`  | `-t`  | Hierarchical directory visualization                                                                              | `lla -t` |
+| `--table` | `-T`  | Structured data display                                                                                           | `lla -T` |
+| `--grid`  | `-g`  | Organized grid layout you can use `-g --grid-ignore` to ignore terminal width (Warning: may extend beyond screen) | `lla -g` |
 
 #### Advanced Views
 

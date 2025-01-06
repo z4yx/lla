@@ -13,17 +13,24 @@ pub struct TreeFormatterConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RecursiveConfig {
+pub struct GridFormatterConfig {
     #[serde(default)]
-    pub max_entries: Option<usize>,
+    pub ignore_width: bool,
+    #[serde(default = "default_grid_max_width")]
+    pub max_width: usize,
 }
 
-impl Default for RecursiveConfig {
+impl Default for GridFormatterConfig {
     fn default() -> Self {
         Self {
-            max_entries: Some(20_000),
+            ignore_width: false,
+            max_width: default_grid_max_width(),
         }
     }
+}
+
+fn default_grid_max_width() -> usize {
+    200
 }
 
 impl Default for TreeFormatterConfig {
@@ -37,12 +44,38 @@ impl Default for TreeFormatterConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SizeMapConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FormatterConfig {
     #[serde(default)]
     pub tree: TreeFormatterConfig,
     #[serde(default)]
+    pub grid: GridFormatterConfig,
+    #[serde(default)]
     pub sizemap: SizeMapConfig,
+}
+
+impl Default for FormatterConfig {
+    fn default() -> Self {
+        Self {
+            tree: TreeFormatterConfig::default(),
+            grid: GridFormatterConfig::default(),
+            sizemap: SizeMapConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecursiveConfig {
+    #[serde(default)]
+    pub max_entries: Option<usize>,
+}
+
+impl Default for RecursiveConfig {
+    fn default() -> Self {
+        Self {
+            max_entries: Some(20_000),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -282,6 +315,18 @@ no_dotfiles = {}
 # Default: 20000 entries
 max_lines = {}
 
+# Grid formatter configuration
+[formatters.grid]
+# Whether to ignore terminal width by default
+# When true, grid view will use max_width instead of terminal width
+# Default: false
+ignore_width = {}
+
+# Maximum width for grid view when ignore_width is true
+# This value is used when terminal width is ignored
+# Default: 200 columns
+max_width = {}
+
 # Lister-specific configurations
 [listers.recursive]
 # Maximum number of entries to process in recursive listing
@@ -316,6 +361,8 @@ ignore_patterns = {}"#,
             self.filter.case_sensitive,
             self.filter.no_dotfiles,
             self.formatters.tree.max_lines.unwrap_or(0),
+            self.formatters.grid.ignore_width,
+            self.formatters.grid.max_width,
             self.listers.recursive.max_entries.unwrap_or(0),
             serde_json::to_string(&self.listers.fuzzy.ignore_patterns).unwrap(),
         );
@@ -711,6 +758,7 @@ impl Default for Config {
                 tree: TreeFormatterConfig {
                     max_lines: Some(20_000),
                 },
+                grid: GridFormatterConfig::default(),
                 sizemap: SizeMapConfig::default(),
             },
             listers: ListerConfig {

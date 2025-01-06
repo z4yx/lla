@@ -11,13 +11,15 @@ use unicode_width::UnicodeWidthStr;
 pub struct GridFormatter {
     pub show_icons: bool,
     pub grid_ignore: bool,
+    pub max_width: usize,
 }
 
 impl GridFormatter {
-    pub fn new(show_icons: bool, grid_ignore: bool) -> Self {
+    pub fn new(show_icons: bool, grid_ignore: bool, max_width: usize) -> Self {
         Self {
             show_icons,
             grid_ignore,
+            max_width,
         }
     }
 }
@@ -33,7 +35,7 @@ impl FileFormatter for GridFormatter {
         }
 
         let term_width = if self.grid_ignore {
-            200
+            self.max_width
         } else {
             terminal_size()
                 .map(|(Width(w), _)| w as usize)

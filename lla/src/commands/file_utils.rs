@@ -333,7 +333,12 @@ pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
     } else if args.table_format {
         Box::new(TableFormatter::new(args.show_icons))
     } else if args.grid_format {
-        Box::new(GridFormatter::new(args.show_icons, args.grid_ignore))
+        let config = Config::load(&Config::get_config_path()).unwrap_or_default();
+        Box::new(GridFormatter::new(
+            args.show_icons,
+            args.grid_ignore || config.formatters.grid.ignore_width,
+            config.formatters.grid.max_width,
+        ))
     } else if args.sizemap_format {
         Box::new(SizeMapFormatter::new(args.show_icons))
     } else if args.timeline_format {
