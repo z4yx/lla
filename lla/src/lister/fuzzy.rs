@@ -722,7 +722,7 @@ impl ResultList {
                     .as_ref()
                     .map(|m| m.permissions())
                     .unwrap_or_else(|| Permissions::from_mode(0o644));
-                let perms_display = colorize_permissions(&perms);
+                let perms_display = colorize_permissions(&perms, Some("symbolic"));
                 let size_display = colorize_size(size);
                 let date_display = colorize_date(&modified);
 

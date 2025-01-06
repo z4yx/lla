@@ -162,6 +162,8 @@ pub struct Config {
     pub shortcuts: HashMap<String, ShortcutCommand>,
     #[serde(default = "default_theme_name")]
     pub theme: String,
+    #[serde(default = "default_permission_format")]
+    pub permission_format: String,
 }
 
 fn deserialize_path_with_tilde<'de, D>(deserializer: D) -> std::result::Result<PathBuf, D::Error>
@@ -180,6 +182,10 @@ where
 
 fn default_theme_name() -> String {
     "default".to_string()
+}
+
+fn default_permission_format() -> String {
+    "symbolic".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,6 +265,16 @@ show_icons = {}
 # This may impact performance for large directories
 # Default: false
 include_dirs = {}
+
+# Format for displaying file permissions    
+# Possible values:
+#   - "symbolic": Traditional Unix-style (e.g., -rw-r--r--)
+#   - "octal": Numeric mode (e.g., 644)
+#   - "binary": Binary representation (e.g., 110100100)
+#   - "compact": Compact representation (e.g., rwxr-xr-x)
+#   - "descriptive": Descriptive representation (e.g., directory, file, symlink, etc.)
+# Default: "symbolic"
+permission_format = "{}"
 
 # The theme to use for coloring
 # Place custom themes in ~/.config/lla/themes/
@@ -348,6 +364,7 @@ ignore_patterns = {}"#,
             self.default_format,
             self.show_icons,
             self.include_dirs,
+            self.permission_format,
             self.theme,
             serde_json::to_string(&self.enabled_plugins).unwrap(),
             plugins_dir_display,
@@ -723,6 +740,21 @@ ignore_patterns = {}"#,
                 }
                 self.theme = value.to_string();
             }
+            ["permission_format"] => {
+                if value != "symbolic"
+                    && value != "octal"
+                    && value != "binary"
+                    && value != "verbose"
+                    && value != "compact"
+                {
+                    return Err(LlaError::Config(ConfigErrorKind::InvalidValue(
+                        key.to_string(),
+                        "must be one of: symbolic, octal, binary, numeric, verbose, compact"
+                            .to_string(),
+                    )));
+                }
+                self.permission_format = value.to_string();
+            }
             _ => {
                 return Err(LlaError::Config(ConfigErrorKind::InvalidValue(
                     key.to_string(),
@@ -741,8 +773,11 @@ ignore_patterns = {}"#,
 
 impl Default for Config {
     fn default() -> Self {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        let default_plugins_dir = home.join(".config").join("lla").join("plugins");
+        let default_plugins_dir = dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".config")
+            .join("lla")
+            .join("plugins");
 
         Config {
             default_sort: String::from("name"),
@@ -754,23 +789,11 @@ impl Default for Config {
             include_dirs: false,
             sort: SortConfig::default(),
             filter: FilterConfig::default(),
-            formatters: FormatterConfig {
-                tree: TreeFormatterConfig {
-                    max_lines: Some(20_000),
-                },
-                grid: GridFormatterConfig::default(),
-                sizemap: SizeMapConfig::default(),
-            },
-            listers: ListerConfig {
-                recursive: RecursiveConfig {
-                    max_entries: Some(20_000),
-                },
-                fuzzy: FuzzyConfig {
-                    ignore_patterns: default_ignore_patterns(),
-                },
-            },
+            formatters: FormatterConfig::default(),
+            listers: ListerConfig::default(),
             shortcuts: HashMap::new(),
             theme: default_theme_name(),
+            permission_format: default_permission_format(),
         }
     }
 }

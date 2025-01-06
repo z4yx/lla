@@ -7,7 +7,6 @@
 <p align="center">
     Modern, customizable, feature-rich and extensible `ls` replacement.
     <br />
-   <br />
     <a href="https://lla.chaqchase.com">Documentation</a>
     ·
     <a href="#features">Features</a>
@@ -227,11 +226,12 @@ will show a detailed listing of all files and directories in the current directo
 
 #### Display Modifiers
 
-| Command      | Description                          | Example          |
-| ------------ | ------------------------------------ | ---------------- |
-| `--icons`    | Show icons for files and directories | `lla --icons`    |
-| `--no-icons` | Hide icons for files and directories | `lla --no-icons` |
-| `--no-color` | Disable all colors in the output     | `lla --no-color` |
+| Command               | Description                                                                           | Example                         |
+| --------------------- | ------------------------------------------------------------------------------------- | ------------------------------- |
+| `--icons`             | Show icons for files and directories                                                  | `lla --icons`                   |
+| `--no-icons`          | Hide icons for files and directories                                                  | `lla --no-icons`                |
+| `--no-color`          | Disable all colors in the output                                                      | `lla --no-color`                |
+| `--permission-format` | Set the format for displaying permissions (symbolic, octal, binary, verbose, compact) | `lla --permission-format octal` |
 
 ### Sort & Filter Options
 

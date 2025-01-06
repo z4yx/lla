@@ -37,6 +37,7 @@ pub struct Args {
     pub no_symlinks: bool,
     pub no_dotfiles: bool,
     pub dotfiles_only: bool,
+    pub permission_format: String,
     pub command: Option<Command>,
 }
 
@@ -274,6 +275,14 @@ impl Args {
                     .long("dotfiles-only")
                     .help("Show only dot files and directories (those starting with a dot)"),
             )
+            .arg(
+                Arg::with_name("permission-format")
+                    .long("permission-format")
+                    .help("Format for displaying permissions (symbolic, octal, binary, verbose, compact)")
+                    .takes_value(true)
+                    .possible_values(&["symbolic", "octal", "binary",  "verbose", "compact"])
+                    .default_value(&config.permission_format),
+            )
             .subcommand(
                 SubCommand::with_name("install")
                     .about("Install a plugin")
@@ -473,6 +482,7 @@ impl Args {
                     no_symlinks: false,
                     no_dotfiles: config.filter.no_dotfiles,
                     dotfiles_only: false,
+                    permission_format: config.permission_format.clone(),
                     command: Some(Command::Shortcut(ShortcutAction::Run(
                         potential_shortcut.clone(),
                         args[2..].to_vec(),
@@ -644,6 +654,10 @@ impl Args {
             no_symlinks: matches.is_present("no-symlinks"),
             no_dotfiles: matches.is_present("no-dotfiles") || config.filter.no_dotfiles,
             dotfiles_only: matches.is_present("dotfiles-only"),
+            permission_format: matches
+                .value_of("permission-format")
+                .unwrap_or(&config.permission_format)
+                .to_string(),
             command,
         }
     }

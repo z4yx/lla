@@ -12,11 +12,15 @@ use std::time::{Duration, SystemTime};
 
 pub struct FuzzyFormatter {
     pub show_icons: bool,
+    pub permission_format: String,
 }
 
 impl FuzzyFormatter {
-    pub fn new(show_icons: bool) -> Self {
-        Self { show_icons }
+    pub fn new(show_icons: bool, permission_format: String) -> Self {
+        Self {
+            show_icons,
+            permission_format,
+        }
     }
 
     fn format_entry(
@@ -41,7 +45,7 @@ impl FuzzyFormatter {
         };
 
         let perms = Permissions::from_mode(metadata.permissions);
-        let perms_display = colorize_permissions(&perms);
+        let perms_display = colorize_permissions(&perms, Some(&self.permission_format));
         let size = colorize_size(metadata.size);
         let modified = SystemTime::UNIX_EPOCH + Duration::from_secs(metadata.modified);
         let date = colorize_date(&modified);

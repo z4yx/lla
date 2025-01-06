@@ -325,13 +325,22 @@ fn create_base_filter(pattern: &str, case_insensitive: bool) -> Box<dyn FileFilt
 
 pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
     if args.fuzzy_format {
-        Box::new(FuzzyFormatter::new(args.show_icons))
+        Box::new(FuzzyFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.long_format {
-        Box::new(LongFormatter::new(args.show_icons))
+        Box::new(LongFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.tree_format {
         Box::new(TreeFormatter::new(args.show_icons))
     } else if args.table_format {
-        Box::new(TableFormatter::new(args.show_icons))
+        Box::new(TableFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.grid_format {
         let config = Config::load(&Config::get_config_path()).unwrap_or_default();
         Box::new(GridFormatter::new(
