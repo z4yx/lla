@@ -269,10 +269,10 @@ include_dirs = {}
 # Format for displaying file permissions    
 # Possible values:
 #   - "symbolic": Traditional Unix-style (e.g., -rw-r--r--)
-#   - "octal": Numeric mode (e.g., 644)
+#   - "octal": Numeric mode (e.g., d644)
 #   - "binary": Binary representation (e.g., 110100100)
-#   - "compact": Compact representation (e.g., rwxr-xr-x)
-#   - "descriptive": Descriptive representation (e.g., directory, file, symlink, etc.)
+#   - "compact": Compact representation (e.g., 644)
+#   - "verbose": Verbose representation (e.g., type:file owner:rwx group:r-x others:r-x)
 # Default: "symbolic"
 permission_format = "{}"
 
