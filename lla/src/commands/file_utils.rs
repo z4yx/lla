@@ -14,6 +14,7 @@ use crate::plugin::PluginManager;
 use crate::sorter::{AlphabeticalSorter, DateSorter, FileSorter, SizeSorter, SortOptions};
 use lla_plugin_interface::proto::{DecoratedEntry, EntryMetadata};
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -148,7 +149,7 @@ pub fn list_and_decorate_files(
         )?
         .into_par_iter()
         .filter_map(|path| {
-            let fs_metadata = path.metadata().ok()?;
+            let fs_metadata = path.symlink_metadata().ok()?;
             let mut metadata = convert_metadata(&fs_metadata);
 
             let is_dotfile = path
@@ -197,10 +198,20 @@ pub fn list_and_decorate_files(
                 return None;
             }
 
+            let mut custom_fields = HashMap::new();
+            if metadata.is_symlink {
+                if let Ok(target) = std::fs::read_link(&path) {
+                    custom_fields.insert(
+                        "symlink_target".to_string(),
+                        target.to_string_lossy().into_owned(),
+                    );
+                }
+            }
+
             Some(DecoratedEntry {
                 path: path.to_string_lossy().into_owned(),
                 metadata: Some(metadata),
-                custom_fields: Default::default(),
+                custom_fields,
             })
         })
         .collect();

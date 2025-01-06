@@ -149,7 +149,9 @@ pub fn colorize_permissions(permissions: &Permissions) -> String {
 
     let theme = get_theme();
 
-    let file_type = if mode & 0o40000 != 0 {
+    let file_type = if mode & 0o170000 == 0o120000 {
+        "l".color(get_color(&theme.colors.permission_dir))
+    } else if mode & 0o170000 == 0o040000 {
         "d".color(get_color(&theme.colors.permission_dir))
     } else {
         "-".color(get_color(&theme.colors.permission_none))
@@ -161,7 +163,13 @@ pub fn colorize_permissions(permissions: &Permissions) -> String {
 }
 
 fn format_permissions_no_color(mode: u32) -> String {
-    let file_type = if mode & 0o40000u32 != 0u32 { "d" } else { "-" };
+    let file_type = if mode & 0o170000 == 0o120000 {
+        "l"
+    } else if mode & 0o170000 == 0o040000 {
+        "d"
+    } else {
+        "-"
+    };
     let read = |shift| {
         if mode >> shift & 0o4u32 != 0u32 {
             "r"
@@ -267,4 +275,16 @@ impl ColorState {
     pub fn is_enabled(&self) -> bool {
         !self.no_color
     }
+}
+
+pub fn colorize_symlink_target(path: &Path) -> ColoredString {
+    if is_no_color() {
+        return path.to_string_lossy().into_owned().normal();
+    }
+
+    let theme = get_theme();
+    format!("{}", path.display())
+        .color(get_color(&theme.colors.symlink))
+        .italic()
+        .underline()
 }

@@ -3,6 +3,7 @@ use crate::error::Result;
 use crate::plugin::PluginManager;
 use crate::utils::color::*;
 use crate::utils::icons::format_with_icon;
+use colored::*;
 use lla_plugin_interface::proto::DecoratedEntry;
 use once_cell::sync::Lazy;
 
@@ -124,6 +125,21 @@ impl FileFormatter for LongFormatter {
                 width_user = max_user_len,
                 width_group = max_group_len
             ));
+
+            if let Some(target) = entry.custom_fields.get("symlink_target") {
+                output.pop();
+                let current_dir = std::path::Path::new(&entry.path)
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let target_path = current_dir.join(target);
+                let colored_target = if let Ok(_) = target_path.symlink_metadata() {
+                    let target_path = std::path::Path::new(target);
+                    colorize_symlink_target(target_path)
+                } else {
+                    target.red().italic()
+                };
+                output.push_str(&format!(" -> {}\n", colored_target));
+            }
         }
         Ok(output)
     }
