@@ -204,6 +204,10 @@ jobs:
         run: |
           find themes -name "*.toml" -type f | zip themes.zip -@
 
+      - name: Create completions archive
+        run: |
+          find completions -name "*" -type f | zip completions.zip -@
+
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
@@ -212,6 +216,7 @@ jobs:
           done
           cd ..
           sha256sum themes.zip >> SHA256SUMS
+          sha256sum completions.zip >> SHA256SUMS
 
       - name: Create Release Notes
         run: |
@@ -255,6 +260,9 @@ jobs:
 
           # Upload themes archive
           gh release upload "v${{ needs.check_release.outputs.current_version }}" themes.zip --clobber
+
+          # Upload completions archive
+          gh release upload "v${{ needs.check_release.outputs.current_version }}" completions.zip --clobber
 
           # Upload checksums
           gh release upload "v${{ needs.check_release.outputs.current_version }}" SHA256SUMS --clobber
