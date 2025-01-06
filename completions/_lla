@@ -24,6 +24,7 @@ _lla() {
 '*--enable-plugin=[Enable specific plugins]: : ' \
 '*--disable-plugin=[Disable specific plugins]: : ' \
 '--plugins-dir=[Specify the plugins directory]: : ' \
+'--permission-format=[Format for displaying permissions (symbolic, octal, binary, verbose, compact)]: :(symbolic octal binary verbose compact)' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 '-V[Print version information]' \
@@ -36,6 +37,7 @@ _lla() {
 '--table[Use table listing format (overrides config format)]' \
 '-g[Use grid listing format (overrides config format)]' \
 '--grid[Use grid listing format (overrides config format)]' \
+'--grid-ignore[Use grid view ignoring terminal width (Warning: output may extend beyond screen width)]' \
 '-S[Show visual representation of file sizes (overrides config format)]' \
 '--sizemap[Show visual representation of file sizes (overrides config format)]' \
 '--timeline[Group files by time periods (overrides config format)]' \
