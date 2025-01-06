@@ -169,7 +169,7 @@ pub fn list_and_decorate_files(
             } else if args.files_only {
                 metadata.is_file
             } else if args.symlinks_only {
-                metadata.is_symlink
+                metadata.is_symlink && !args.no_symlinks
             } else {
                 let include_dirs = !args.no_dirs;
                 let include_files = !args.no_files;
