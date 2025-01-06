@@ -321,13 +321,15 @@ will show a detailed listing of all files and directories in the current directo
 
 ### Configuration & Setup
 
-| Command      | Description                       | Example               |
-| ------------ | --------------------------------- | --------------------- |
-| `init`       | Initialize the configuration file | `lla init`            |
-| `config`     | View or modify configuration      | `lla config`          |
-| `theme`      | Interactive theme manager         | `lla theme`           |
-| `completion` | Generate shell completion scripts | `lla completion bash` |
-| `clean`      | Clean up invalid plugins          | `lla clean`           |
+| Command         | Description                       | Example                                                                         |
+| --------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| `init`          | Initialize the configuration file | `lla init`                                                                      |
+| `config`        | View or modify configuration      | `lla config`                                                                    |
+| `theme`         | Interactive theme manager         | `lla theme`                                                                     |
+| `theme pull`    | Pull the built-in themes          | `lla theme pull`                                                                |
+| `theme install` | Install theme from file/directory | `lla theme install /path/to/theme.toml`<br>`lla theme install /path/to/themes/` |
+| `completion`    | Generate shell completion scripts | `lla completion bash`                                                           |
+| `clean`         | Clean up invalid plugins          | `lla clean`                                                                     |
 
 ### General Options
 
