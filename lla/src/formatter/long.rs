@@ -112,22 +112,8 @@ impl FileFormatter for LongFormatter {
                 format!(" {}", plugin_fields)
             };
 
-            output.push_str(&format!(
-                "{} {:>width_size$} {} {:<width_user$} {:<width_group$} {}{}\n",
-                permissions,
-                size,
-                modified_str,
-                colorize_user(&user),
-                colorize_group(&group),
-                name,
-                plugin_suffix,
-                width_size = min_size_len,
-                width_user = max_user_len,
-                width_group = max_group_len
-            ));
-
+            let mut name_with_target = name;
             if let Some(target) = entry.custom_fields.get("symlink_target") {
-                output.pop();
                 let current_dir = std::path::Path::new(&entry.path)
                     .parent()
                     .unwrap_or_else(|| std::path::Path::new("."));
@@ -138,8 +124,22 @@ impl FileFormatter for LongFormatter {
                 } else {
                     target.red().italic()
                 };
-                output.push_str(&format!(" -> {}\n", colored_target));
+                name_with_target = format!("{} -> {}", name_with_target, colored_target);
             }
+
+            output.push_str(&format!(
+                "{} {:>width_size$} {} {:<width_user$} {:<width_group$} {}{}\n",
+                permissions,
+                size,
+                modified_str,
+                colorize_user(&user),
+                colorize_group(&group),
+                name_with_target,
+                plugin_suffix,
+                width_size = min_size_len,
+                width_user = max_user_len,
+                width_group = max_group_len
+            ));
         }
         Ok(output)
     }
