@@ -110,6 +110,7 @@ pub struct Config {
     pub default_sort: String,
     pub default_format: String,
     pub enabled_plugins: Vec<String>,
+    #[serde(deserialize_with = "deserialize_path_with_tilde")]
     pub plugins_dir: PathBuf,
     pub default_depth: Option<usize>,
     #[serde(default)]
@@ -128,6 +129,20 @@ pub struct Config {
     pub shortcuts: HashMap<String, ShortcutCommand>,
     #[serde(default = "default_theme_name")]
     pub theme: String,
+}
+
+fn deserialize_path_with_tilde<'de, D>(deserializer: D) -> std::result::Result<PathBuf, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let path_str = String::deserialize(deserializer)?;
+    if path_str.starts_with('~') {
+        let home = dirs::home_dir()
+            .ok_or_else(|| serde::de::Error::custom("Could not determine home directory"))?;
+        Ok(home.join(&path_str[2..]))
+    } else {
+        Ok(PathBuf::from(path_str))
+    }
 }
 
 fn default_theme_name() -> String {
@@ -166,6 +181,17 @@ impl Config {
     }
 
     fn generate_config_content(&self) -> String {
+        let plugins_dir_str = self.plugins_dir.to_string_lossy();
+        let plugins_dir_display = if let Some(home) = dirs::home_dir() {
+            if let Ok(relative) = self.plugins_dir.strip_prefix(&home) {
+                format!("~/{}", relative.to_string_lossy())
+            } else {
+                plugins_dir_str.to_string()
+            }
+        } else {
+            plugins_dir_str.to_string()
+        };
+
         let mut content = format!(
             r#"# lla Configuration File
 # This file controls the behavior and appearance of the lla command
@@ -279,7 +305,7 @@ ignore_patterns = {}"#,
             self.include_dirs,
             self.theme,
             serde_json::to_string(&self.enabled_plugins).unwrap(),
-            self.plugins_dir.to_string_lossy(),
+            plugins_dir_display,
             match self.default_depth {
                 Some(depth) => depth.to_string(),
                 None => "null".to_string(),
