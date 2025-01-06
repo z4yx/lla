@@ -1052,7 +1052,7 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "lla"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "atty",
  "chrono",
@@ -1092,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_interface"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "prost",
  "prost-build",
@@ -1101,7 +1101,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_utils"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "bytes",
  "chrono",

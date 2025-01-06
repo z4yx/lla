@@ -10,6 +10,7 @@ pub struct Args {
     pub tree_format: bool,
     pub table_format: bool,
     pub grid_format: bool,
+    pub grid_ignore: bool,
     pub sizemap_format: bool,
     pub timeline_format: bool,
     pub git_format: bool,
@@ -36,6 +37,7 @@ pub struct Args {
     pub no_symlinks: bool,
     pub no_dotfiles: bool,
     pub dotfiles_only: bool,
+    pub permission_format: String,
     pub command: Option<Command>,
 }
 
@@ -115,6 +117,11 @@ impl Args {
                     .short('g')
                     .long("grid")
                     .help("Use grid listing format (overrides config format)"),
+            )
+            .arg(
+                Arg::with_name("grid-ignore")
+                    .long("grid-ignore")
+                    .help("Use grid view ignoring terminal width (Warning: output may extend beyond screen width)"),
             )
             .arg(
                 Arg::with_name("sizemap")
@@ -267,6 +274,14 @@ impl Args {
                 Arg::with_name("dotfiles-only")
                     .long("dotfiles-only")
                     .help("Show only dot files and directories (those starting with a dot)"),
+            )
+            .arg(
+                Arg::with_name("permission-format")
+                    .long("permission-format")
+                    .help("Format for displaying permissions (symbolic, octal, binary, verbose, compact)")
+                    .takes_value(true)
+                    .possible_values(&["symbolic", "octal", "binary",  "verbose", "compact"])
+                    .default_value(&config.permission_format),
             )
             .subcommand(
                 SubCommand::with_name("install")
@@ -440,6 +455,7 @@ impl Args {
                     tree_format: config.default_format == "tree",
                     table_format: config.default_format == "table",
                     grid_format: config.default_format == "grid",
+                    grid_ignore: false,
                     sizemap_format: config.default_format == "sizemap",
                     timeline_format: config.default_format == "timeline",
                     git_format: config.default_format == "git",
@@ -466,6 +482,7 @@ impl Args {
                     no_symlinks: false,
                     no_dotfiles: config.filter.no_dotfiles,
                     dotfiles_only: false,
+                    permission_format: config.permission_format.clone(),
                     command: Some(Command::Shortcut(ShortcutAction::Run(
                         potential_shortcut.clone(),
                         args[2..].to_vec(),
@@ -592,6 +609,7 @@ impl Args {
                 || (!has_format_flag && config.default_format == "table"),
             grid_format: matches.is_present("grid")
                 || (!has_format_flag && config.default_format == "grid"),
+            grid_ignore: matches.is_present("grid-ignore"),
             sizemap_format: matches.is_present("sizemap")
                 || (!has_format_flag && config.default_format == "sizemap"),
             timeline_format: matches.is_present("timeline")
@@ -636,6 +654,10 @@ impl Args {
             no_symlinks: matches.is_present("no-symlinks"),
             no_dotfiles: matches.is_present("no-dotfiles") || config.filter.no_dotfiles,
             dotfiles_only: matches.is_present("dotfiles-only"),
+            permission_format: matches
+                .value_of("permission-format")
+                .unwrap_or(&config.permission_format)
+                .to_string(),
             command,
         }
     }

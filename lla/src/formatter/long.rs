@@ -19,13 +19,18 @@ static GROUP_CACHE: Lazy<Mutex<HashMap<u32, String>>> = Lazy::new(|| Mutex::new(
 
 pub struct LongFormatter {
     pub show_icons: bool,
+    pub permission_format: String,
 }
 
 impl LongFormatter {
-    pub fn new(show_icons: bool) -> Self {
-        Self { show_icons }
+    pub fn new(show_icons: bool, permission_format: String) -> Self {
+        Self {
+            show_icons,
+            permission_format,
+        }
     }
 }
+
 impl FileFormatter for LongFormatter {
     fn format_files(
         &self,
@@ -64,7 +69,7 @@ impl FileFormatter for LongFormatter {
             let metadata = entry.metadata.as_ref().cloned().unwrap_or_default();
             let size = colorize_size(metadata.size);
             let perms = Permissions::from_mode(metadata.permissions);
-            let permissions = colorize_permissions(&perms);
+            let permissions = colorize_permissions(&perms, Some(&self.permission_format));
             let modified = SystemTime::UNIX_EPOCH + Duration::from_secs(metadata.modified);
             let modified_str = colorize_date(&modified);
             let path = Path::new(&entry.path);
@@ -83,11 +88,11 @@ impl FileFormatter for LongFormatter {
                 if let Some(cached_user) = cache.get(&uid) {
                     cached_user.clone()
                 } else {
-                    let user_str = get_user_by_uid(uid)
+                    let user = get_user_by_uid(uid)
                         .map(|u| u.name().to_string_lossy().into_owned())
                         .unwrap_or_else(|| uid.to_string());
-                    cache.insert(uid, user_str.clone());
-                    user_str
+                    cache.insert(uid, user.clone());
+                    user
                 }
             };
 
@@ -96,11 +101,11 @@ impl FileFormatter for LongFormatter {
                 if let Some(cached_group) = cache.get(&gid) {
                     cached_group.clone()
                 } else {
-                    let group_str = get_group_by_gid(gid)
+                    let group = get_group_by_gid(gid)
                         .map(|g| g.name().to_string_lossy().into_owned())
                         .unwrap_or_else(|| gid.to_string());
-                    cache.insert(gid, group_str.clone());
-                    group_str
+                    cache.insert(gid, group.clone());
+                    group
                 }
             };
 
@@ -111,6 +116,16 @@ impl FileFormatter for LongFormatter {
                 format!(" {}", plugin_fields)
             };
 
+            let name_with_target = if metadata.is_symlink {
+                if let Some(target) = entry.custom_fields.get("symlink_target") {
+                    format!("{} -> {}", name, colorize_symlink_target(Path::new(target)))
+                } else {
+                    name
+                }
+            } else {
+                name
+            };
+
             output.push_str(&format!(
                 "{} {:>width_size$} {} {:<width_user$} {:<width_group$} {}{}\n",
                 permissions,
@@ -118,7 +133,7 @@ impl FileFormatter for LongFormatter {
                 modified_str,
                 colorize_user(&user),
                 colorize_group(&group),
-                name,
+                name_with_target,
                 plugin_suffix,
                 width_size = min_size_len,
                 width_user = max_user_len,

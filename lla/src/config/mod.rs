@@ -13,17 +13,24 @@ pub struct TreeFormatterConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RecursiveConfig {
+pub struct GridFormatterConfig {
     #[serde(default)]
-    pub max_entries: Option<usize>,
+    pub ignore_width: bool,
+    #[serde(default = "default_grid_max_width")]
+    pub max_width: usize,
 }
 
-impl Default for RecursiveConfig {
+impl Default for GridFormatterConfig {
     fn default() -> Self {
         Self {
-            max_entries: Some(20_000),
+            ignore_width: false,
+            max_width: default_grid_max_width(),
         }
     }
+}
+
+fn default_grid_max_width() -> usize {
+    200
 }
 
 impl Default for TreeFormatterConfig {
@@ -37,12 +44,38 @@ impl Default for TreeFormatterConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SizeMapConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FormatterConfig {
     #[serde(default)]
     pub tree: TreeFormatterConfig,
     #[serde(default)]
+    pub grid: GridFormatterConfig,
+    #[serde(default)]
     pub sizemap: SizeMapConfig,
+}
+
+impl Default for FormatterConfig {
+    fn default() -> Self {
+        Self {
+            tree: TreeFormatterConfig::default(),
+            grid: GridFormatterConfig::default(),
+            sizemap: SizeMapConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecursiveConfig {
+    #[serde(default)]
+    pub max_entries: Option<usize>,
+}
+
+impl Default for RecursiveConfig {
+    fn default() -> Self {
+        Self {
+            max_entries: Some(20_000),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -110,6 +143,7 @@ pub struct Config {
     pub default_sort: String,
     pub default_format: String,
     pub enabled_plugins: Vec<String>,
+    #[serde(deserialize_with = "deserialize_path_with_tilde")]
     pub plugins_dir: PathBuf,
     pub default_depth: Option<usize>,
     #[serde(default)]
@@ -128,10 +162,30 @@ pub struct Config {
     pub shortcuts: HashMap<String, ShortcutCommand>,
     #[serde(default = "default_theme_name")]
     pub theme: String,
+    #[serde(default = "default_permission_format")]
+    pub permission_format: String,
+}
+
+fn deserialize_path_with_tilde<'de, D>(deserializer: D) -> std::result::Result<PathBuf, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let path_str = String::deserialize(deserializer)?;
+    if path_str.starts_with('~') {
+        let home = dirs::home_dir()
+            .ok_or_else(|| serde::de::Error::custom("Could not determine home directory"))?;
+        Ok(home.join(&path_str[2..]))
+    } else {
+        Ok(PathBuf::from(path_str))
+    }
 }
 
 fn default_theme_name() -> String {
     "default".to_string()
+}
+
+fn default_permission_format() -> String {
+    "symbolic".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,6 +220,17 @@ impl Config {
     }
 
     fn generate_config_content(&self) -> String {
+        let plugins_dir_str = self.plugins_dir.to_string_lossy();
+        let plugins_dir_display = if let Some(home) = dirs::home_dir() {
+            if let Ok(relative) = self.plugins_dir.strip_prefix(&home) {
+                format!("~/{}", relative.to_string_lossy())
+            } else {
+                plugins_dir_str.to_string()
+            }
+        } else {
+            plugins_dir_str.to_string()
+        };
+
         let mut content = format!(
             r#"# lla Configuration File
 # This file controls the behavior and appearance of the lla command
@@ -200,6 +265,16 @@ show_icons = {}
 # This may impact performance for large directories
 # Default: false
 include_dirs = {}
+
+# Format for displaying file permissions    
+# Possible values:
+#   - "symbolic": Traditional Unix-style (e.g., -rw-r--r--)
+#   - "octal": Numeric mode (e.g., d644)
+#   - "binary": Binary representation (e.g., 110100100)
+#   - "compact": Compact representation (e.g., 644)
+#   - "verbose": Verbose representation (e.g., type:file owner:rwx group:r-x others:r-x)
+# Default: "symbolic"
+permission_format = "{}"
 
 # The theme to use for coloring
 # Place custom themes in ~/.config/lla/themes/
@@ -256,6 +331,18 @@ no_dotfiles = {}
 # Default: 20000 entries
 max_lines = {}
 
+# Grid formatter configuration
+[formatters.grid]
+# Whether to ignore terminal width by default
+# When true, grid view will use max_width instead of terminal width
+# Default: false
+ignore_width = {}
+
+# Maximum width for grid view when ignore_width is true
+# This value is used when terminal width is ignored
+# Default: 200 columns
+max_width = {}
+
 # Lister-specific configurations
 [listers.recursive]
 # Maximum number of entries to process in recursive listing
@@ -277,9 +364,10 @@ ignore_patterns = {}"#,
             self.default_format,
             self.show_icons,
             self.include_dirs,
+            self.permission_format,
             self.theme,
             serde_json::to_string(&self.enabled_plugins).unwrap(),
-            self.plugins_dir.to_string_lossy(),
+            plugins_dir_display,
             match self.default_depth {
                 Some(depth) => depth.to_string(),
                 None => "null".to_string(),
@@ -290,6 +378,8 @@ ignore_patterns = {}"#,
             self.filter.case_sensitive,
             self.filter.no_dotfiles,
             self.formatters.tree.max_lines.unwrap_or(0),
+            self.formatters.grid.ignore_width,
+            self.formatters.grid.max_width,
             self.listers.recursive.max_entries.unwrap_or(0),
             serde_json::to_string(&self.listers.fuzzy.ignore_patterns).unwrap(),
         );
@@ -650,6 +740,21 @@ ignore_patterns = {}"#,
                 }
                 self.theme = value.to_string();
             }
+            ["permission_format"] => {
+                if value != "symbolic"
+                    && value != "octal"
+                    && value != "binary"
+                    && value != "verbose"
+                    && value != "compact"
+                {
+                    return Err(LlaError::Config(ConfigErrorKind::InvalidValue(
+                        key.to_string(),
+                        "must be one of: symbolic, octal, binary, numeric, verbose, compact"
+                            .to_string(),
+                    )));
+                }
+                self.permission_format = value.to_string();
+            }
             _ => {
                 return Err(LlaError::Config(ConfigErrorKind::InvalidValue(
                     key.to_string(),
@@ -668,8 +773,11 @@ ignore_patterns = {}"#,
 
 impl Default for Config {
     fn default() -> Self {
-        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        let default_plugins_dir = home.join(".config").join("lla").join("plugins");
+        let default_plugins_dir = dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".config")
+            .join("lla")
+            .join("plugins");
 
         Config {
             default_sort: String::from("name"),
@@ -681,22 +789,11 @@ impl Default for Config {
             include_dirs: false,
             sort: SortConfig::default(),
             filter: FilterConfig::default(),
-            formatters: FormatterConfig {
-                tree: TreeFormatterConfig {
-                    max_lines: Some(20_000),
-                },
-                sizemap: SizeMapConfig::default(),
-            },
-            listers: ListerConfig {
-                recursive: RecursiveConfig {
-                    max_entries: Some(20_000),
-                },
-                fuzzy: FuzzyConfig {
-                    ignore_patterns: default_ignore_patterns(),
-                },
-            },
+            formatters: FormatterConfig::default(),
+            listers: ListerConfig::default(),
             shortcuts: HashMap::new(),
             theme: default_theme_name(),
+            permission_format: default_permission_format(),
         }
     }
 }

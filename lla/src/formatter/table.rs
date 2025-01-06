@@ -15,11 +15,15 @@ use unicode_width::UnicodeWidthStr;
 
 pub struct TableFormatter {
     pub show_icons: bool,
+    pub permission_format: String,
 }
 
 impl TableFormatter {
-    pub fn new(show_icons: bool) -> Self {
-        Self { show_icons }
+    pub fn new(show_icons: bool, permission_format: String) -> Self {
+        Self {
+            show_icons,
+            permission_format,
+        }
     }
 }
 impl TableFormatter {
@@ -33,7 +37,7 @@ impl TableFormatter {
         Self::strip_ansi(s).width()
     }
 
-    fn calculate_column_widths(files: &[DecoratedEntry]) -> [usize; 4] {
+    fn calculate_column_widths(files: &[DecoratedEntry], permission_format: &str) -> [usize; 4] {
         let mut widths = [
             "Permissions".len(),
             "Size".len(),
@@ -44,7 +48,7 @@ impl TableFormatter {
         for entry in files {
             let metadata = entry.metadata.as_ref().cloned().unwrap_or_default();
             let perms = Permissions::from_mode(metadata.permissions);
-            let perms = colorize_permissions(&perms);
+            let perms = colorize_permissions(&perms, Some(permission_format));
             widths[0] = cmp::max(widths[0], Self::visible_width(&perms));
 
             let size: ColoredString = colorize_size(metadata.size);
@@ -159,7 +163,7 @@ impl FileFormatter for TableFormatter {
             return Ok(String::new());
         }
 
-        let widths = Self::calculate_column_widths(files);
+        let widths = Self::calculate_column_widths(files, &self.permission_format);
 
         let mut output = String::new();
         output.push_str(&Self::create_top_border(&widths));
@@ -172,7 +176,7 @@ impl FileFormatter for TableFormatter {
         for entry in files {
             let metadata = entry.metadata.as_ref().cloned().unwrap_or_default();
             let perms = Permissions::from_mode(metadata.permissions);
-            let perms = colorize_permissions(&perms);
+            let perms = colorize_permissions(&perms, Some(&self.permission_format));
             let size = colorize_size(metadata.size);
             let modified = UNIX_EPOCH + Duration::from_secs(metadata.modified);
             let date = colorize_date(&modified);

@@ -7,7 +7,6 @@
 <p align="center">
     Modern, customizable, feature-rich and extensible `ls` replacement.
     <br />
-   <br />
     <a href="https://lla.chaqchase.com">Documentation</a>
     ·
     <a href="#features">Features</a>
@@ -137,7 +136,8 @@ lla -T
 Space-efficient layout for dense directories:
 
 ```bash
-lla -g
+lla -g                  # Basic grid view
+lla -g --grid-ignore    # Grid view ignoring terminal width (Warning: may extend beyond screen)
 ```
 
 <img src="https://github.com/user-attachments/assets/b81d01ea-b830-4833-8791-7b62ff9137df" className="rounded-2xl" alt="grid" />
@@ -206,13 +206,13 @@ will show a detailed listing of all files and directories in the current directo
 
 #### Basic Views
 
-| Command   | Short | Description                             | Example  |
-| --------- | ----- | --------------------------------------- | -------- |
-| (default) |       | List current directory                  | `lla`    |
-| `--long`  | `-l`  | Detailed file information with metadata | `lla -l` |
-| `--tree`  | `-t`  | Hierarchical directory visualization    | `lla -t` |
-| `--table` | `-T`  | Structured data display                 | `lla -T` |
-| `--grid`  | `-g`  | Organized grid layout                   | `lla -g` |
+| Command   | Short | Description                                                                                                       | Example  |
+| --------- | ----- | ----------------------------------------------------------------------------------------------------------------- | -------- |
+| (default) |       | List current directory                                                                                            | `lla`    |
+| `--long`  | `-l`  | Detailed file information with metadata                                                                           | `lla -l` |
+| `--tree`  | `-t`  | Hierarchical directory visualization                                                                              | `lla -t` |
+| `--table` | `-T`  | Structured data display                                                                                           | `lla -T` |
+| `--grid`  | `-g`  | Organized grid layout you can use `-g --grid-ignore` to ignore terminal width (Warning: may extend beyond screen) | `lla -g` |
 
 #### Advanced Views
 
@@ -226,11 +226,12 @@ will show a detailed listing of all files and directories in the current directo
 
 #### Display Modifiers
 
-| Command      | Description                          | Example          |
-| ------------ | ------------------------------------ | ---------------- |
-| `--icons`    | Show icons for files and directories | `lla --icons`    |
-| `--no-icons` | Hide icons for files and directories | `lla --no-icons` |
-| `--no-color` | Disable all colors in the output     | `lla --no-color` |
+| Command               | Description                                                                           | Example                         |
+| --------------------- | ------------------------------------------------------------------------------------- | ------------------------------- |
+| `--icons`             | Show icons for files and directories                                                  | `lla --icons`                   |
+| `--no-icons`          | Hide icons for files and directories                                                  | `lla --no-icons`                |
+| `--no-color`          | Disable all colors in the output                                                      | `lla --no-color`                |
+| `--permission-format` | Set the format for displaying permissions (symbolic, octal, binary, verbose, compact) | `lla --permission-format octal` |
 
 ### Sort & Filter Options
 
@@ -321,13 +322,15 @@ will show a detailed listing of all files and directories in the current directo
 
 ### Configuration & Setup
 
-| Command      | Description                       | Example               |
-| ------------ | --------------------------------- | --------------------- |
-| `init`       | Initialize the configuration file | `lla init`            |
-| `config`     | View or modify configuration      | `lla config`          |
-| `theme`      | Interactive theme manager         | `lla theme`           |
-| `completion` | Generate shell completion scripts | `lla completion bash` |
-| `clean`      | Clean up invalid plugins          | `lla clean`           |
+| Command         | Description                       | Example                                                                         |
+| --------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| `init`          | Initialize the configuration file | `lla init`                                                                      |
+| `config`        | View or modify configuration      | `lla config`                                                                    |
+| `theme`         | Interactive theme manager         | `lla theme`                                                                     |
+| `theme pull`    | Pull the built-in themes          | `lla theme pull`                                                                |
+| `theme install` | Install theme from file/directory | `lla theme install /path/to/theme.toml`<br>`lla theme install /path/to/themes/` |
+| `completion`    | Generate shell completion scripts | `lla completion bash`                                                           |
+| `clean`         | Clean up invalid plugins          | `lla clean`                                                                     |
 
 ### General Options
 

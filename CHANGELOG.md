@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.10] - 2025-01-06
+
+### Added
+
+- Enhanced symlink support:
+
+  - New symlink metadata retrieval and display
+  - Improved symlink target information in output
+  - Better visual representation of symlinks
+
+- New permission format options:
+
+  - `--permission-format` argument with multiple display formats:
+    - symbolic (default)
+    - octal
+    - binary
+    - verbose
+    - compact
+  - Configurable default permission format in settings in configuration file
+
+- Enhanced grid format configuration:
+  - New `--grid-ignore` option
+  - Configurable grid width settings in configuration file
+
+### Changed
+
+- Improved plugin configuration with enhanced tilde expansion for plugin directories
+
+- Refined symlink target display positioning in LongFormatter output
+- Enhanced documentation and README formatting
+- Added completions archive to release workflow
+
+### Fixed
+
+- Fixed symlink handling to respect 'no_symlinks' argument
+
 ## [0.3.9] - 2025-01-04
 
 ### Added

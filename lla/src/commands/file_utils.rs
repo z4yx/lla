@@ -14,6 +14,7 @@ use crate::plugin::PluginManager;
 use crate::sorter::{AlphabeticalSorter, DateSorter, FileSorter, SizeSorter, SortOptions};
 use lla_plugin_interface::proto::{DecoratedEntry, EntryMetadata};
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -148,7 +149,7 @@ pub fn list_and_decorate_files(
         )?
         .into_par_iter()
         .filter_map(|path| {
-            let fs_metadata = path.metadata().ok()?;
+            let fs_metadata = path.symlink_metadata().ok()?;
             let mut metadata = convert_metadata(&fs_metadata);
 
             let is_dotfile = path
@@ -168,7 +169,7 @@ pub fn list_and_decorate_files(
             } else if args.files_only {
                 metadata.is_file
             } else if args.symlinks_only {
-                metadata.is_symlink
+                metadata.is_symlink && !args.no_symlinks
             } else {
                 let include_dirs = !args.no_dirs;
                 let include_files = !args.no_files;
@@ -197,10 +198,20 @@ pub fn list_and_decorate_files(
                 return None;
             }
 
+            let mut custom_fields = HashMap::new();
+            if metadata.is_symlink {
+                if let Ok(target) = std::fs::read_link(&path) {
+                    custom_fields.insert(
+                        "symlink_target".to_string(),
+                        target.to_string_lossy().into_owned(),
+                    );
+                }
+            }
+
             Some(DecoratedEntry {
                 path: path.to_string_lossy().into_owned(),
                 metadata: Some(metadata),
-                custom_fields: Default::default(),
+                custom_fields,
             })
         })
         .collect();
@@ -314,15 +325,29 @@ fn create_base_filter(pattern: &str, case_insensitive: bool) -> Box<dyn FileFilt
 
 pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
     if args.fuzzy_format {
-        Box::new(FuzzyFormatter::new(args.show_icons))
+        Box::new(FuzzyFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.long_format {
-        Box::new(LongFormatter::new(args.show_icons))
+        Box::new(LongFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.tree_format {
         Box::new(TreeFormatter::new(args.show_icons))
     } else if args.table_format {
-        Box::new(TableFormatter::new(args.show_icons))
+        Box::new(TableFormatter::new(
+            args.show_icons,
+            args.permission_format.clone(),
+        ))
     } else if args.grid_format {
-        Box::new(GridFormatter::new(args.show_icons))
+        let config = Config::load(&Config::get_config_path()).unwrap_or_default();
+        Box::new(GridFormatter::new(
+            args.show_icons,
+            args.grid_ignore || config.formatters.grid.ignore_width,
+            config.formatters.grid.max_width,
+        ))
     } else if args.sizemap_format {
         Box::new(SizeMapFormatter::new(args.show_icons))
     } else if args.timeline_format {
