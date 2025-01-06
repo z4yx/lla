@@ -333,7 +333,7 @@ pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
     } else if args.table_format {
         Box::new(TableFormatter::new(args.show_icons))
     } else if args.grid_format {
-        Box::new(GridFormatter::new(args.show_icons))
+        Box::new(GridFormatter::new(args.show_icons, args.grid_ignore))
     } else if args.sizemap_format {
         Box::new(SizeMapFormatter::new(args.show_icons))
     } else if args.timeline_format {

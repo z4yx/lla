@@ -10,11 +10,15 @@ use unicode_width::UnicodeWidthStr;
 
 pub struct GridFormatter {
     pub show_icons: bool,
+    pub grid_ignore: bool,
 }
 
 impl GridFormatter {
-    pub fn new(show_icons: bool) -> Self {
-        Self { show_icons }
+    pub fn new(show_icons: bool, grid_ignore: bool) -> Self {
+        Self {
+            show_icons,
+            grid_ignore,
+        }
     }
 }
 impl FileFormatter for GridFormatter {
@@ -28,9 +32,13 @@ impl FileFormatter for GridFormatter {
             return Ok(String::new());
         }
 
-        let term_width = terminal_size()
-            .map(|(Width(w), _)| w as usize)
-            .unwrap_or(80);
+        let term_width = if self.grid_ignore {
+            200
+        } else {
+            terminal_size()
+                .map(|(Width(w), _)| w as usize)
+                .unwrap_or(80)
+        };
 
         let mut formatted_entries = Vec::with_capacity(files.len());
         let mut max_width = 0;

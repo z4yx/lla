@@ -10,6 +10,7 @@ pub struct Args {
     pub tree_format: bool,
     pub table_format: bool,
     pub grid_format: bool,
+    pub grid_ignore: bool,
     pub sizemap_format: bool,
     pub timeline_format: bool,
     pub git_format: bool,
@@ -115,6 +116,11 @@ impl Args {
                     .short('g')
                     .long("grid")
                     .help("Use grid listing format (overrides config format)"),
+            )
+            .arg(
+                Arg::with_name("grid-ignore")
+                    .long("grid-ignore")
+                    .help("Use grid view ignoring terminal width (Warning: output may extend beyond screen width)"),
             )
             .arg(
                 Arg::with_name("sizemap")
@@ -440,6 +446,7 @@ impl Args {
                     tree_format: config.default_format == "tree",
                     table_format: config.default_format == "table",
                     grid_format: config.default_format == "grid",
+                    grid_ignore: false,
                     sizemap_format: config.default_format == "sizemap",
                     timeline_format: config.default_format == "timeline",
                     git_format: config.default_format == "git",
@@ -592,6 +599,7 @@ impl Args {
                 || (!has_format_flag && config.default_format == "table"),
             grid_format: matches.is_present("grid")
                 || (!has_format_flag && config.default_format == "grid"),
+            grid_ignore: matches.is_present("grid-ignore"),
             sizemap_format: matches.is_present("sizemap")
                 || (!has_format_flag && config.default_format == "sizemap"),
             timeline_format: matches.is_present("timeline")
