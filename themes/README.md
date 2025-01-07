@@ -233,14 +233,22 @@ lla includes several pre-configured themes:
 - **ayu_light**: Light theme with carefully selected colors for optimal readability
 - **ayu_mirage**: Refined dark theme with muted colors and soft contrasts
 - **catppuccin_mocha**: A soothing pastel theme for the high-spirited, featuring warm, cozy colors
+- **circuit_dreams**: A theme inspired by vintage circuit boards and electronic components
+- **cosmic_night**: A sophisticated dark theme with cosmic-inspired colors and nebula accents
+- **deep_sea**: An ocean-inspired theme featuring the colors of marine depths
 - **dracula**: Classic Dracula color scheme with vibrant colors and high contrast
+- **forest_depths**: A theme inspired by the depths of an ancient forest at twilight
 - **gruvbox_dark**: Retro groove color scheme with warm, earthy tones and high contrast
 - **material_ocean**: Deep blue theme based on Material Design, featuring oceanic colors
+- **moonlight**: A minimal theme with subtle blue-gray tones inspired by moonlit nights
+- **neon_dreams**: A vibrant cyberpunk theme featuring electric neons and digital gradients
 - **nord**: Arctic, north-bluish color palette with elegant pastel colors
 - **one_dark**: Dark theme inspired by Atom, featuring a perfect balance of cool and warm colors
 - **poimandres**: Deep space aesthetic with vibrant accents
+- **synthwave_84**: A retro-computing theme inspired by 1980s aesthetics
 - **tokyo_night**: Dark theme inspired by the vibrant lights of Tokyo at night
 - **vesper**: Minimalist dark theme with warm accents
+- **zen**: A minimal monochromatic theme emphasizing simplicity and clarity
 
 ## Usage
 
