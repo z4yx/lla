@@ -51,7 +51,7 @@ lazy_static! {
             "Remove files/directories from current or specified directory",
             vec![
                 "lla plugin --name file_remover --action remove",
-                "lla plugin --name file_remover --action remove /path/to/dir"
+                "lla plugin --name file_remover --action remove --args /path/to/dir"
             ],
             |args| FileRemoverPlugin::remove_action(args)
         );
@@ -221,7 +221,7 @@ impl FileRemoverPlugin {
             "Remove files/directories from current or specified directory".to_string(),
             vec![
                 "lla plugin --name file_remover --action remove".to_string(),
-                "lla plugin --name file_remover --action remove /path/to/dir".to_string(),
+                "lla plugin --name file_remover --action remove --args /path/to/dir".to_string(),
             ],
         );
 

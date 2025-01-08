@@ -103,7 +103,7 @@ lazy_static! {
             "Add files/directories to clipboard from current or specified directory",
             vec![
                 "lla plugin --name file_copier --action add",
-                "lla plugin --name file_copier --action add /path/to/dir"
+                "lla plugin --name file_copier --action add --args /path/to/dir"
             ],
             |args| FileCopierPlugin::add_action(args)
         );
@@ -115,7 +115,7 @@ lazy_static! {
             "Copy all items from clipboard to current or specified directory",
             vec![
                 "lla plugin --name file_copier --action copy-all",
-                "lla plugin --name file_copier --action copy-all /path/to/target"
+                "lla plugin --name file_copier --action copy-all --args /path/to/target"
             ],
             |args| FileCopierPlugin::copy_all_action(args)
         );
@@ -127,7 +127,7 @@ lazy_static! {
             "Copy selected items from clipboard to current or specified directory",
             vec![
                 "lla plugin --name file_copier --action copy-partial",
-                "lla plugin --name file_copier --action copy-partial /path/to/target"
+                "lla plugin --name file_copier --action copy-partial --args /path/to/target"
             ],
             |args| FileCopierPlugin::copy_partial_action(args)
         );
@@ -402,7 +402,7 @@ impl FileCopierPlugin {
                     .to_string(),
                 vec![
                     "lla plugin --name file_copier --action add".to_string(),
-                    "lla plugin --name file_copier --action add /path/to/dir".to_string(),
+                    "lla plugin --name file_copier --action add --args /path/to/dir".to_string(),
                 ],
             )
             .add_command(
@@ -410,7 +410,8 @@ impl FileCopierPlugin {
                 "Copy all items from clipboard to current or specified directory".to_string(),
                 vec![
                     "lla plugin --name file_copier --action copy-all".to_string(),
-                    "lla plugin --name file_copier --action copy-all /path/to/target".to_string(),
+                    "lla plugin --name file_copier --action copy-all --args /path/to/target"
+                        .to_string(),
                 ],
             )
             .add_command(
@@ -418,7 +419,7 @@ impl FileCopierPlugin {
                 "Copy selected items from clipboard to current or specified directory".to_string(),
                 vec![
                     "lla plugin --name file_copier --action copy-partial".to_string(),
-                    "lla plugin --name file_copier --action copy-partial /path/to/target"
+                    "lla plugin --name file_copier --action copy-partial --args /path/to/target"
                         .to_string(),
                 ],
             );

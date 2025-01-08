@@ -21,7 +21,7 @@ lazy_static! {
             "add-category",
             "add-category <name> <color> <ext1,ext2,...> [description]",
             "Add a new category",
-            vec!["lla plugin --name categorizer --action add-category Documents blue txt,doc,pdf \"Text documents\""],
+            vec!["lla plugin --name categorizer --action add-category --args Documents blue txt,doc,pdf \"Text documents\""],
             |args| {
                 if args.len() < 3 {
                     return Err("Usage: add-category <name> <color> <ext1,ext2,...> [description]".to_string());
@@ -45,7 +45,7 @@ lazy_static! {
             "add-subcategory",
             "add-subcategory <category> <subcategory> <ext1,ext2,...>",
             "Add a subcategory to an existing category",
-            vec!["lla plugin --name categorizer --action add-subcategory Documents Text txt,md"],
+            vec!["lla plugin --name categorizer --action add-subcategory --args Documents Text txt,md"],
             |args| {
                 if args.len() != 3 {
                     return Err(
@@ -132,12 +132,12 @@ lazy_static! {
                     .add_command(
                         "add-category".to_string(),
                         "Add a new category".to_string(),
-                        vec!["lla plugin --name categorizer --action add-category Documents blue txt,doc,pdf \"Text documents\"".to_string()],
+                        vec!["lla plugin --name categorizer --action add-category --args Documents blue txt,doc,pdf \"Text documents\"".to_string()],
                     )
                     .add_command(
                         "add-subcategory".to_string(),
                         "Add a subcategory to an existing category".to_string(),
-                        vec!["lla plugin --name categorizer --action add-subcategory Documents Text txt,md".to_string()],
+                        vec!["lla plugin --name categorizer --action add-subcategory --args Documents Text txt,md".to_string()],
                     )
                     .add_command(
                         "list-categories".to_string(),

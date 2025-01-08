@@ -26,7 +26,7 @@ lazy_static! {
             "set-thresholds",
             "set-thresholds <low> <medium> <high> <very-high>",
             "Set complexity thresholds",
-            vec!["lla plugin --name code_complexity --action set-thresholds 10 20 30 40"],
+            vec!["lla plugin --name code_complexity --action set-thresholds --args 10 20 30 40"],
             |args| {
                 if args.len() != 4 {
                     return Err(
@@ -92,7 +92,7 @@ lazy_static! {
                         "set-thresholds".to_string(),
                         "Set complexity thresholds".to_string(),
                         vec![
-                            "lla plugin --name code_complexity --action set-thresholds 10 20 30 40"
+                            "lla plugin --name code_complexity --action set-thresholds --args 10 20 30 40"
                                 .to_string(),
                         ],
                     )

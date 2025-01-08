@@ -87,16 +87,16 @@ extensions = [".tmp", ".bak"]
 
 ```bash
 # Organize using default strategy (extension)
-lla plugin --name file_organizer --action organize /path/to/dir
+lla plugin --name file_organizer --action organize --args /path/to/dir
 
 # Organize using specific strategy
-lla plugin --name file_organizer --action organize /path/to/dir extension
-lla plugin --name file_organizer --action organize /path/to/dir date
-lla plugin --name file_organizer --action organize /path/to/dir type
-lla plugin --name file_organizer --action organize /path/to/dir size
+lla plugin --name file_organizer --action organize --args /path/to/dir extension
+lla plugin --name file_organizer --action organize --args /path/to/dir date
+lla plugin --name file_organizer --action organize --args /path/to/dir type
+lla plugin --name file_organizer --action organize --args /path/to/dir size
 
 # Preview changes before organizing
-lla plugin --name file_organizer --action preview /path/to/dir extension
+lla plugin --name file_organizer --action preview --args /path/to/dir extension
 
 # Show help information
 lla plugin --name file_organizer --action help
