@@ -29,7 +29,7 @@ path = "bright_yellow"
 lla plugin --name file_remover --action remove
 
 # Remove files/directories from specified directory
-lla plugin --name file_remover --action remove /path/to/directory
+lla plugin --name file_remover --action remove --args /path/to/directory
 
 # Show help information
 lla plugin --name file_remover --action help
@@ -50,7 +50,7 @@ lla plugin --name file_remover --action remove
 
 ```bash
 # Remove files from a specific directory without changing location
-lla plugin --name file_remover --action remove /path/to/directory
+lla plugin --name file_remover --action remove --args /path/to/directory
 # Select files to remove using space, confirm with enter
 ```
 

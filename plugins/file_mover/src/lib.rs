@@ -103,7 +103,7 @@ lazy_static! {
             "Add files/directories to clipboard from current or specified directory",
             vec![
                 "lla plugin --name file_mover --action add",
-                "lla plugin --name file_mover --action add /path/to/dir"
+                "lla plugin --name file_mover --action add --args /path/to/dir"
             ],
             |args| FileMoverPlugin::add_action(args)
         );
@@ -115,7 +115,7 @@ lazy_static! {
             "Move all items from clipboard to current or specified directory",
             vec![
                 "lla plugin --name file_mover --action move-all",
-                "lla plugin --name file_mover --action move-all /path/to/target"
+                "lla plugin --name file_mover --action move-all --args /path/to/target"
             ],
             |args| FileMoverPlugin::move_all_action(args)
         );
@@ -127,7 +127,7 @@ lazy_static! {
             "Move selected items from clipboard to current or specified directory",
             vec![
                 "lla plugin --name file_mover --action move-partial",
-                "lla plugin --name file_mover --action move-partial /path/to/target"
+                "lla plugin --name file_mover --action move-partial --args /path/to/target"
             ],
             |args| FileMoverPlugin::move_partial_action(args)
         );
@@ -372,7 +372,7 @@ impl FileMoverPlugin {
                     .to_string(),
                 vec![
                     "lla plugin --name file_mover --action add".to_string(),
-                    "lla plugin --name file_mover --action add /path/to/dir".to_string(),
+                    "lla plugin --name file_mover --action add --args /path/to/dir".to_string(),
                 ],
             )
             .add_command(
@@ -380,7 +380,8 @@ impl FileMoverPlugin {
                 "Move all items from clipboard to current or specified directory".to_string(),
                 vec![
                     "lla plugin --name file_mover --action move-all".to_string(),
-                    "lla plugin --name file_mover --action move-all /path/to/target".to_string(),
+                    "lla plugin --name file_mover --action move-all --args /path/to/target"
+                        .to_string(),
                 ],
             )
             .add_command(
@@ -388,7 +389,7 @@ impl FileMoverPlugin {
                 "Move selected items from clipboard to current or specified directory".to_string(),
                 vec![
                     "lla plugin --name file_mover --action move-partial".to_string(),
-                    "lla plugin --name file_mover --action move-partial /path/to/target"
+                    "lla plugin --name file_mover --action move-partial --args /path/to/target"
                         .to_string(),
                 ],
             );
