@@ -77,6 +77,8 @@ verify_checksum() {
     curl -L "$CHECKSUM_URL" -o "${TMP_DIR}/SHA256SUMS"
     
     cd "$TMP_DIR"
+    mkdir "${PLATFORM}"
+    cp lla "${PLATFORM}/${PLATFORM}"
     if ! sha256sum -c --ignore-missing SHA256SUMS; then
         print_error "Checksum verification failed"
         cd - > /dev/null
