@@ -60,6 +60,7 @@ This script will automatically:
 | macOS (Homebrew)           | `brew install lla`  |
 | Arch Linux (paru)          | `paru -S lla`       |
 | NetBSD (pkgin)             | `pkgin install lla` |
+| X-CMD                      | `x install lla`     |
 
 ### Manual Installation
 
