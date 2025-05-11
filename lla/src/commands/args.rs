@@ -550,10 +550,15 @@ impl Args {
                 Some(Command::Install(InstallSource::GitHub(
                     github_url.to_string(),
                 )))
+            } else if let Some(local_dir) = install_matches.value_of("dir") {
+                Some(Command::Install(InstallSource::LocalDir(
+                    local_dir.to_string(),
+                )))
             } else {
-                install_matches.value_of("dir").map(|local_dir| {
-                    Command::Install(InstallSource::LocalDir(local_dir.to_string()))
-                })
+                // default --git https://github.com/triyanox/lla
+                Some(Command::Install(InstallSource::GitHub(
+                    "https://github.com/triyanox/lla".to_string(),
+                )))
             }
         } else if matches.subcommand_matches("list-plugins").is_some() {
             Some(Command::ListPlugins)
