@@ -3,6 +3,7 @@ use crate::error::Result;
 use crate::plugin::PluginManager;
 use crate::utils::color::*;
 use crate::utils::icons::format_with_icon;
+use console;
 use lla_plugin_interface::proto::DecoratedEntry;
 use once_cell::sync::Lazy;
 
@@ -118,7 +119,15 @@ impl FileFormatter for LongFormatter {
 
             let name_with_target = if metadata.is_symlink {
                 if let Some(target) = entry.custom_fields.get("symlink_target") {
-                    format!("{} -> {}", name, colorize_symlink_target(Path::new(target)))
+                    if entry.custom_fields.get("invalid_symlink").is_some() {
+                        let broken_target = console::style(target).red().bold();
+                        format!("{} -> {} (broken)", name, broken_target)
+                    } else {
+                        format!("{} -> {}", name, colorize_symlink_target(Path::new(target)))
+                    }
+                } else if entry.custom_fields.get("invalid_symlink").is_some() {
+                    let broken_indicator = console::style("(broken link)").red().bold();
+                    format!("{} -> {}", name, broken_indicator)
                 } else {
                     name
                 }
