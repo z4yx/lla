@@ -64,7 +64,11 @@ _lla() {
 '--no-dirs[Hide directories]' \
 '--no-files[Hide regular files]' \
 '--no-symlinks[Hide symbolic links]' \
-'--no-dotfiles[Hide dot files and directories (those starting with a dot)]' \
+'--no-dotfiles[Hide files starting with a dot (overrides config setting)]' \
+'-a[Show all files including dotfiles (overrides no_dotfiles config)]' \
+'--all[Show all files including dotfiles (overrides no_dotfiles config)]' \
+'-A[Show all files including dotfiles except . and .. (overrides no_dotfiles config)]' \
+'--almost-all[Show all files including dotfiles except . and .. (overrides no_dotfiles config)]' \
 '--dotfiles-only[Show only dot files and directories (those starting with a dot)]' \
 '::directory -- The directory to list:' \
 ":: :_lla_commands" \
