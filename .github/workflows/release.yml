@@ -9,7 +9,7 @@ on:
 jobs:
   check_release:
     if: |
-      (github.event_name == 'workflow_dispatch' && github.actor == 'triyanox') ||
+      (github.event_name == 'workflow_dispatch' && github.actor == 'chaqchase') ||
       (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release'))
     runs-on: ubuntu-latest
     permissions:
