@@ -243,8 +243,20 @@ fn format_size(size: u64) -> String {
 
     let size = size as f64;
     let base = 1024_f64;
-    let exp = (size.ln() / base.ln()).floor() as i32;
-    let exp = exp.clamp(0, (UNITS.len() - 1) as i32);
+
+    let exp = if size > 0.0 {
+        (size.ln() / base.ln()).floor() as i32
+    } else {
+        0
+    };
+
+    let exp = if exp < 0 {
+        0
+    } else if exp >= UNITS.len() as i32 {
+        (UNITS.len() - 1) as i32
+    } else {
+        exp
+    };
 
     let size = size / base.powi(exp);
     if exp == 0 {
