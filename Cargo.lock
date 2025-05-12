@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "last_git_commit"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bytes",
  "colored",
@@ -1004,6 +1004,7 @@ dependencies = [
  "parking_lot",
  "prost",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
