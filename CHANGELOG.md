@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11] - 2025-01-09
+
+### Added
+
+- New command-line arguments for controlling file visibility:
+  - `--all`: Show all files including hidden files and special entries (. and ..)
+  - `--almost-all`: Show hidden files but exclude special directory entries (. and ..)
+
+### Changed
+
+- Upgraded actions/upload-artifact to v4 in CI and release workflows
+- Improved directory sorting logic across all sorters (alphabetical, date, size)
+- Enhanced natural sorting algorithm for more accurate numeric segment comparisons
+- Updated last_git_commit plugin to use JSON for parsing commit information
+
+### Fixed
+
+- Fixed issue with SizeMap formatter panicking in certain scenarios
+- Improved symlink handling to gracefully manage invalid symlinks
+- Enhanced symlink target information display and metadata collection
+- Fixed commit info retrieval in the git plugin for edge cases
+
 ## [0.3.10] - 2025-01-06
 
 ### Added
