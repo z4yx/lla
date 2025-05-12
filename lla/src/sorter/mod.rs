@@ -31,8 +31,17 @@ pub(crate) fn compare_dirs_first(a: &PathBuf, b: &PathBuf, dirs_first: bool) -> 
         return std::cmp::Ordering::Equal;
     }
 
-    let a_is_dir = a.is_dir();
-    let b_is_dir = b.is_dir();
+    let a_is_dir = if let Ok(metadata) = a.symlink_metadata() {
+        metadata.is_dir()
+    } else {
+        a.is_dir()
+    };
+
+    let b_is_dir = if let Ok(metadata) = b.symlink_metadata() {
+        metadata.is_dir()
+    } else {
+        b.is_dir()
+    };
 
     match (a_is_dir, b_is_dir) {
         (true, false) => std::cmp::Ordering::Less,
@@ -42,35 +51,42 @@ pub(crate) fn compare_dirs_first(a: &PathBuf, b: &PathBuf, dirs_first: bool) -> 
 }
 
 pub(crate) fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    let mut a_parts = a.split_inclusive(char::is_numeric);
-    let mut b_parts = b.split_inclusive(char::is_numeric);
+    let mut a_chars = a.chars().peekable();
+    let mut b_chars = b.chars().peekable();
 
-    loop {
-        match (a_parts.next(), b_parts.next()) {
-            (None, None) => return std::cmp::Ordering::Equal,
-            (None, Some(_)) => return std::cmp::Ordering::Less,
-            (Some(_), None) => return std::cmp::Ordering::Greater,
-            (Some(a_part), Some(b_part)) => {
-                if a_part.ends_with(char::is_numeric) && b_part.ends_with(char::is_numeric) {
-                    let a_num: u64 = a_part
-                        .trim_end_matches(char::is_numeric)
-                        .parse()
-                        .unwrap_or(0);
-                    let b_num: u64 = b_part
-                        .trim_end_matches(char::is_numeric)
-                        .parse()
-                        .unwrap_or(0);
-                    match a_num.cmp(&b_num) {
-                        std::cmp::Ordering::Equal => continue,
-                        other => return other,
-                    }
-                } else {
-                    match a_part.cmp(b_part) {
-                        std::cmp::Ordering::Equal => continue,
-                        other => return other,
-                    }
+    while a_chars.peek().is_some() && b_chars.peek().is_some() {
+        if a_chars.peek().unwrap().is_ascii_digit() && b_chars.peek().unwrap().is_ascii_digit() {
+            let mut a_num = 0u64;
+            let mut b_num = 0u64;
+
+            while a_chars.peek().map_or(false, |c| c.is_ascii_digit()) {
+                if let Some(digit) = a_chars.next() {
+                    a_num = a_num * 10 + digit.to_digit(10).unwrap() as u64;
                 }
             }
+
+            while b_chars.peek().map_or(false, |c| c.is_ascii_digit()) {
+                if let Some(digit) = b_chars.next() {
+                    b_num = b_num * 10 + digit.to_digit(10).unwrap() as u64;
+                }
+            }
+
+            match a_num.cmp(&b_num) {
+                std::cmp::Ordering::Equal => continue,
+                other => return other,
+            }
+        } else {
+            match a_chars.next().unwrap().cmp(&b_chars.next().unwrap()) {
+                std::cmp::Ordering::Equal => continue,
+                other => return other,
+            }
         }
+    }
+
+    match (a_chars.peek(), b_chars.peek()) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        _ => unreachable!(),
     }
 }
