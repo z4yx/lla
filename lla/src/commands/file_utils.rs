@@ -192,9 +192,17 @@ pub fn list_and_decorate_files(
                 .map(|n| n.starts_with('.'))
                 .unwrap_or(false);
 
+            let is_current_or_parent_dir = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n == "." || n == "..")
+                .unwrap_or(false);
+
             if args.dotfiles_only && !is_dotfile {
                 return None;
             } else if args.no_dotfiles && is_dotfile {
+                return None;
+            } else if args.almost_all && is_current_or_parent_dir {
                 return None;
             }
 
