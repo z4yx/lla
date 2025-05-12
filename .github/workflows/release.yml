@@ -183,8 +183,14 @@ jobs:
             echo "lla_plugin_utils v$VERSION already published, skipping..."
           fi
 
-          echo "Publishing lla v$VERSION"
-          cargo publish -p lla
+          # Check and publish lla
+          PUBLISHED_VERSION=$(cargo search lla --limit 1 | awk -F '"' '{print $2}')
+          if [ "$PUBLISHED_VERSION" != "$VERSION" ]; then
+            echo "Publishing lla v$VERSION"
+            cargo publish -p lla
+          else
+            echo "lla v$VERSION already published, skipping..."
+          fi
 
   create_release:
     needs: [check_release, build, publish]
