@@ -7,6 +7,7 @@ use lla_plugin_utils::{
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::{collections::HashMap, path::Path, process::Command};
 
 lazy_static! {
@@ -105,21 +106,43 @@ impl LastGitCommitPlugin {
 
     fn get_last_commit_info(path: &Path) -> Option<(String, String, String)> {
         let output = Command::new("git")
-            .args(["log", "-1", "--format=%h|%an|%ar", "--", path.to_str()?])
+            .args([
+                "log",
+                "-1",
+                "--format=format:{ \"hash\": \"%h\", \"author\": \"%an\", \"time\": \"%ar\" }",
+                "--",
+                path.to_str()?,
+            ])
             .output()
             .ok()?;
 
         let output_str = String::from_utf8(output.stdout).ok()?;
-        let parts: Vec<&str> = output_str.trim().split('|').collect();
+        let trimmed = output_str.trim();
 
-        if parts.len() == 3 {
-            Some((
-                parts[0].to_string(),
-                parts[1].to_string(),
-                parts[2].to_string(),
-            ))
-        } else {
-            None
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        match serde_json::from_str::<serde_json::Value>(trimmed) {
+            Ok(json) => {
+                let hash = match json.get("hash").and_then(|v| v.as_str()) {
+                    Some(h) => h.to_string(),
+                    None => return None,
+                };
+
+                let author = match json.get("author").and_then(|v| v.as_str()) {
+                    Some(a) => a.to_string(),
+                    None => return None,
+                };
+
+                let time = match json.get("time").and_then(|v| v.as_str()) {
+                    Some(t) => t.to_string(),
+                    None => return None,
+                };
+
+                Some((hash, author, time))
+            }
+            Err(_) => None,
         }
     }
 

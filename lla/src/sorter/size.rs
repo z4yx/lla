@@ -13,13 +13,27 @@ impl FileSorter for SizeSorter {
         options: SortOptions,
     ) -> Result<()> {
         entries.par_sort_unstable_by(|(path_a, entry_a), (path_b, entry_b)| {
-            let dir_order = compare_dirs_first(path_a, path_b, options.dirs_first);
-            if dir_order != std::cmp::Ordering::Equal {
-                return if options.reverse {
-                    dir_order.reverse()
-                } else {
-                    dir_order
-                };
+            if options.dirs_first {
+                let a_is_dir = entry_a.metadata.as_ref().map_or(false, |m| m.is_dir);
+                let b_is_dir = entry_b.metadata.as_ref().map_or(false, |m| m.is_dir);
+
+                match (a_is_dir, b_is_dir) {
+                    (true, false) => {
+                        return if options.reverse {
+                            std::cmp::Ordering::Greater
+                        } else {
+                            std::cmp::Ordering::Less
+                        }
+                    }
+                    (false, true) => {
+                        return if options.reverse {
+                            std::cmp::Ordering::Less
+                        } else {
+                            std::cmp::Ordering::Greater
+                        }
+                    }
+                    _ => {}
+                }
             }
 
             let size_a = entry_a.metadata.as_ref().map_or(0, |m| m.size);

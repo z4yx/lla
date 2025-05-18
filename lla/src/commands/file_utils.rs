@@ -149,7 +149,41 @@ pub fn list_and_decorate_files(
         )?
         .into_par_iter()
         .filter_map(|path| {
-            let fs_metadata = path.symlink_metadata().ok()?;
+            let fs_metadata = match path.symlink_metadata() {
+                Ok(meta) => meta,
+                Err(_) => {
+                    if let Some(file_name) = path.file_name() {
+                        let mut custom_fields = HashMap::new();
+                        custom_fields.insert("invalid_symlink".to_string(), "true".to_string());
+
+                        if let Ok(target) = std::fs::read_link(&path) {
+                            custom_fields.insert(
+                                "symlink_target".to_string(),
+                                target.to_string_lossy().into_owned(),
+                            );
+                        }
+
+                        return Some(DecoratedEntry {
+                            path: path.to_string_lossy().into_owned(),
+                            metadata: Some(EntryMetadata {
+                                size: 0,
+                                modified: 0,
+                                accessed: 0,
+                                created: 0,
+                                is_dir: false,
+                                is_file: false,
+                                is_symlink: true,
+                                permissions: 0,
+                                uid: 0,
+                                gid: 0,
+                            }),
+                            custom_fields,
+                        });
+                    }
+                    return None;
+                }
+            };
+
             let mut metadata = convert_metadata(&fs_metadata);
 
             let is_dotfile = path
@@ -158,9 +192,17 @@ pub fn list_and_decorate_files(
                 .map(|n| n.starts_with('.'))
                 .unwrap_or(false);
 
+            let is_current_or_parent_dir = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n == "." || n == "..")
+                .unwrap_or(false);
+
             if args.dotfiles_only && !is_dotfile {
                 return None;
             } else if args.no_dotfiles && is_dotfile {
+                return None;
+            } else if args.almost_all && is_current_or_parent_dir {
                 return None;
             }
 

@@ -36,6 +36,7 @@ pub struct Args {
     pub no_files: bool,
     pub no_symlinks: bool,
     pub no_dotfiles: bool,
+    pub almost_all: bool,
     pub dotfiles_only: bool,
     pub permission_format: String,
     pub command: Option<Command>,
@@ -268,7 +269,19 @@ impl Args {
             .arg(
                 Arg::with_name("no-dotfiles")
                     .long("no-dotfiles")
-                    .help("Hide dot files and directories (those starting with a dot)"),
+                    .help("Hide files starting with a dot (overrides config setting)"),
+            )
+            .arg(
+                Arg::with_name("all")
+                    .short('a')
+                    .long("all")
+                    .help("Show all files including dotfiles (overrides no_dotfiles config)"),
+            )
+            .arg(
+                Arg::with_name("almost-all")
+                    .short('A')
+                    .long("almost-all")
+                    .help("Show all files including dotfiles except . and .. (overrides no_dotfiles config)"),
             )
             .arg(
                 Arg::with_name("dotfiles-only")
@@ -481,6 +494,7 @@ impl Args {
                     no_files: false,
                     no_symlinks: false,
                     no_dotfiles: config.filter.no_dotfiles,
+                    almost_all: false,
                     dotfiles_only: false,
                     permission_format: config.permission_format.clone(),
                     command: Some(Command::Shortcut(ShortcutAction::Run(
@@ -550,10 +564,15 @@ impl Args {
                 Some(Command::Install(InstallSource::GitHub(
                     github_url.to_string(),
                 )))
+            } else if let Some(local_dir) = install_matches.value_of("dir") {
+                Some(Command::Install(InstallSource::LocalDir(
+                    local_dir.to_string(),
+                )))
             } else {
-                install_matches.value_of("dir").map(|local_dir| {
-                    Command::Install(InstallSource::LocalDir(local_dir.to_string()))
-                })
+                // default --git https://github.com/triyanox/lla
+                Some(Command::Install(InstallSource::GitHub(
+                    "https://github.com/triyanox/lla".to_string(),
+                )))
             }
         } else if matches.subcommand_matches("list-plugins").is_some() {
             Some(Command::ListPlugins)
@@ -652,7 +671,11 @@ impl Args {
             no_dirs: matches.is_present("no-dirs"),
             no_files: matches.is_present("no-files"),
             no_symlinks: matches.is_present("no-symlinks"),
-            no_dotfiles: matches.is_present("no-dotfiles") || config.filter.no_dotfiles,
+            no_dotfiles: matches.is_present("no-dotfiles")
+                && !matches.is_present("all")
+                && !matches.is_present("almost-all")
+                && config.filter.no_dotfiles,
+            almost_all: matches.is_present("almost-all"),
             dotfiles_only: matches.is_present("dotfiles-only"),
             permission_format: matches
                 .value_of("permission-format")
