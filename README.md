@@ -84,8 +84,6 @@ lla init
 lla config
 ```
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/lla-ls.svg)](https://repology.org/project/lla-ls/versions)
-
 ## Display Formats
 
 ### Core Views
