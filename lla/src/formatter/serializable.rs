@@ -82,10 +82,7 @@ fn gid_to_name(gid: u32) -> Option<String> {
     name
 }
 
-pub fn to_serializable(
-    entry: &DecoratedEntry,
-    git_status: Option<String>,
-) -> SerializableEntry {
+pub fn to_serializable(entry: &DecoratedEntry, git_status: Option<String>) -> SerializableEntry {
     let path = Path::new(&entry.path);
     let name = path
         .file_name()
@@ -222,5 +219,3 @@ pub fn get_git_status_map(workspace_root: &Path) -> HashMap<String, String> {
 
     status_map
 }
-
-
