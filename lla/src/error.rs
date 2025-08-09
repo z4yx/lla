@@ -81,4 +81,14 @@ impl From<serde_json::Error> for LlaError {
     }
 }
 
+impl From<csv::Error> for LlaError {
+    fn from(err: csv::Error) -> Self {
+        if let csv::ErrorKind::Io(io_err) = err.kind() {
+            LlaError::Io(std::io::Error::new(io_err.kind(), io_err.to_string()))
+        } else {
+            LlaError::Other(format!("CSV error: {}", err))
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, LlaError>;

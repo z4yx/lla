@@ -22,14 +22,15 @@ dirs.workspace = true
 colored.workspace = true
 rayon.workspace = true
 chrono.workspace = true
+chrono-humanize = "0.2"
 libloading.workspace = true
 serde_json.workspace = true
 walkdir.workspace = true
 tempfile.workspace = true
 users.workspace = true
 parking_lot.workspace = true
-lla_plugin_interface = { version = "0.3.11", path = "../lla_plugin_interface" }
-lla_plugin_utils = { version = "0.3.11", path = "../lla_plugin_utils" }
+lla_plugin_interface = { version = "0.4.0", path = "../lla_plugin_interface" }
+lla_plugin_utils = { version = "0.4.0", path = "../lla_plugin_utils" }
 once_cell.workspace = true
 dashmap.workspace = true
 unicode-width.workspace = true
@@ -48,3 +49,9 @@ crossbeam-channel = "0.5.14"
 unicode-normalization = "0.1.22"
 num_cpus = "1.16"
 fuzzy-matcher = "0.3.7"
+csv = "1"
+pathdiff = "0.2"
+zip = { version = "1", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"
+libc = "0.2"

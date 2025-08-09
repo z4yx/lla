@@ -108,6 +108,28 @@ lla -l
 
 <img src="https://github.com/user-attachments/assets/2a8d95e4-efd2-4bff-a905-9d9a892dc794" className="rounded-2xl" alt="long" />
 
+Options and tweaks:
+
+- Hide the group column (useful on single-user systems):
+
+  ```bash
+  lla -l --hide-group
+  ```
+
+- Show relative dates (e.g., "2h ago"):
+
+  ```bash
+  lla -l --relative-dates
+  ```
+
+To make these defaults, add to your config (`~/.config/lla/config.toml`):
+
+```toml
+[formatters.long]
+hide_group = true
+relative_dates = true
+```
+
 #### Tree Structure
 
 Hierarchical exploration of directory relationships:
@@ -117,6 +139,27 @@ lla -t -d 3  # Navigate up to 3 levels deep
 ```
 
 <img src="https://github.com/user-attachments/assets/cb32bfbb-eeb1-4701-889d-f3d42c7d4896" className="rounded-2xl" alt="tree" />
+
+#### Archive Introspection
+
+List archive contents as a virtual directory (no extraction). Supported: `.zip`, `.tar`, `.tar.gz`, `.tgz`.
+
+```
+lla my_archive.zip -t    # tree view
+lla project.tar.gz -l    # long view
+lla my_archive.tgz --json
+lla my_archive.zip -l -f ".rs"  # filter by extension on internal paths
+```
+
+#### Single-file Listing
+
+You can pass a single file path to list it directly with any view or machine output:
+
+```
+lla README.md          # default view
+lla Cargo.toml -l      # long view
+lla src/main.rs --json # machine output
+```
 
 ### Enhanced Organization
 
@@ -140,6 +183,8 @@ lla -g --grid-ignore    # Grid view ignoring terminal width (Warning: may extend
 ```
 
 <img src="https://github.com/user-attachments/assets/b81d01ea-b830-4833-8791-7b62ff9137df" className="rounded-2xl" alt="grid" />
+
+Note: Grid output no longer appends a trailing blank newline.
 
 ### Specialized Views
 
@@ -198,6 +243,54 @@ lla -R -d 3  # Set exploration depth
 
 The `-R` option can be integrated with other options to create a more specific view. For example, `lla -R -l`
 will show a detailed listing of all files and directories in the current directory.
+
+### Machine Output
+
+Stable, streaming machine-readable formats are available. These modes keep existing listing filters/sorts/depth behavior; only the output changes.
+
+- **--json**: Output a single JSON array (streamed). Use **--pretty** to pretty print.
+- **--ndjson**: Output newline-delimited JSON, one object per line.
+- **--csv**: Output CSV with a header row.
+
+Flags are mutually exclusive. **--pretty** only affects **--json**.
+
+JSON/NDJSON schema (stable fields):
+
+```
+{
+  "path": "src/main.rs",
+  "name": "main.rs",
+  "extension": "rs" | null,
+  "file_type": "file" | "dir" | "symlink" | "other",
+  "size_bytes": 1234,
+  "modified": "2024-05-01T12:34:56Z",
+  "created": "..." | null,
+  "accessed": "..." | null,
+  "mode_octal": "0644",
+  "owner_user": "mohamed" | null,
+  "owner_group": "staff" | null,
+  "inode": 1234567 | null,
+  "hard_links": 1 | null,
+  "symlink_target": "..." | null,
+  "is_hidden": false,
+  "git_status": "M." | null,
+  "plugin": { /* plugin-provided fields, if any */ }
+}
+```
+
+CSV columns (v1):
+
+```
+path,name,extension,file_type,size_bytes,modified,created,accessed,mode_octal,owner_user,owner_group,inode,hard_links,symlink_target,is_hidden,git_status
+```
+
+Examples:
+
+```bash
+lla --json --pretty
+lla --ndjson
+lla --csv
+```
 
 ## Command Reference
 

@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-01-10
+
+### Added
+
+- Stable machine-readable outputs with streaming:
+  - `--json`: Outputs a single JSON array (streamed). Supports `--pretty` for human-friendly indentation.
+  - `--ndjson`: Newline-delimited JSON, one object per line.
+  - `--csv`: CSV with a header row. Proper escaping and UTF-8 handling via the `csv` crate.
+  - Flags are mutually exclusive; `--pretty` only affects `--json`.
+- Stable schema across machine modes with these fields (always present; nulls where appropriate):
+  - `path`, `name`, `extension`, `file_type`, `size_bytes`, `modified`, `created`, `accessed`, `mode_octal`, `owner_user`, `owner_group`, `inode`, `hard_links`, `symlink_target`, `is_hidden`, `git_status`, and `plugin` container for plugin enrichments.
+- Streaming output writers to avoid unbounded memory growth on large listings.
+- Optional Git status integration into machine outputs when `-G` is used (no extra git work otherwise).
+- Archive introspection (no extraction to disk):
+  - Automatic detection for `.zip`, `.tar`, `.tar.gz`, `.tgz` when a single archive file is passed as the path
+  - Lists archive contents as a virtual directory and integrates with existing views: default, long, table, grid, tree, recursive
+  - Works with filters, sorting, depth control, and machine outputs (`--json`, `--ndjson`, `--csv`)
+  - Symlink targets in tar archives are exposed as `custom_fields["symlink_target"]`
+- Single-file listing:
+  - Passing a regular file path now lists that single file (instead of erroring with Not a directory)
+  - All formatters and machine outputs apply normally
+- Long format quality-of-life flags:
+  - `--hide-group`: Hide the group column (great for single-user systems). Also configurable via `formatters.long.hide_group` in the config file.
+  - `--relative-dates`: Show relative modified times (e.g., "2h ago"). Also configurable via `formatters.long.relative_dates`.
+  - Relative dates are powered by `chrono-humanize` for accurate human-friendly phrasing.
+
+### Changed
+
+- CLI: Added mutually exclusive flags group for machine output (`--json`, `--ndjson`, `--csv`) and `--pretty`.
+- Internal: Introduced `OutputMode` in CLI args to route to human vs machine formatters.
+- Internal: Added a serializable adapter to normalize timestamps to ISO-8601 UTC and permissions to octal.
+- Docs: Updated README with a new "Machine Output" section including schema and examples.
+- Long format date column alignment is now consistent even when using relative dates.
+- Grid formatter no longer appends an extra trailing blank newline; output ends without an extra empty line.
+
+### Fixed
+
+- Non-fatal metadata read failures are handled gracefully during machine output; entries still emit with nulls where needed and a warning on stderr, without corrupting stdout.
+- Graceful handling when the provided path is a single file or an archive: no erroneous directory reads
+- Relative date phrasing now correctly uses "X ago" for past times and "in X" for future times.
+
 ## [0.3.11] - 2025-01-09
 
 ### Added
