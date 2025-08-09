@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.4.0] - 2025-01-10
+
+### Added
+
+- Stable machine-readable outputs with streaming:
+  - `--json`: Outputs a single JSON array (streamed). Supports `--pretty` for human-friendly indentation.
+  - `--ndjson`: Newline-delimited JSON, one object per line.
+  - `--csv`: CSV with a header row. Proper escaping and UTF-8 handling via the `csv` crate.
+  - Flags are mutually exclusive; `--pretty` only affects `--json`.
+- Stable schema across machine modes with these fields (always present; nulls where appropriate):
+  - `path`, `name`, `extension`, `file_type`, `size_bytes`, `modified`, `created`, `accessed`, `mode_octal`, `owner_user`, `owner_group`, `inode`, `hard_links`, `symlink_target`, `is_hidden`, `git_status`, and `plugin` container for plugin enrichments.
+- Streaming output writers to avoid unbounded memory growth on large listings.
+- Optional Git status integration into machine outputs when `-G` is used (no extra git work otherwise).
+
+### Changed
+
+- CLI: Added mutually exclusive flags group for machine output (`--json`, `--ndjson`, `--csv`) and `--pretty`.
+- Internal: Introduced `OutputMode` in CLI args to route to human vs machine formatters.
+- Internal: Added a serializable adapter to normalize timestamps to ISO-8601 UTC and permissions to octal.
+- Docs: Updated README with a new "Machine Output" section including schema and examples.
+
+### Fixed
+
+- Non-fatal metadata read failures are handled gracefully during machine output; entries still emit with nulls where needed and a warning on stderr, without corrupting stdout.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

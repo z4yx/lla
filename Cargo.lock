@@ -442,6 +442,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "csv"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acdc4883a9c96732e4733212c01447ebd805833b7275a73ca3ee080fd77afdaf"
+dependencies = [
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d02f3b0da4c6504f86e9cd789d8dbafab48c2321be74e9987593de5a894d93d"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1053,7 +1074,7 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "lla"
-version = "0.3.11"
+version = "0.4.0"
 dependencies = [
  "atty",
  "chrono",
@@ -1063,6 +1084,7 @@ dependencies = [
  "console",
  "crossbeam-channel",
  "crossterm",
+ "csv",
  "dashmap",
  "dialoguer",
  "dirs",
@@ -1076,6 +1098,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "parking_lot",
+ "pathdiff",
  "prost",
  "rayon",
  "regex",
@@ -1093,7 +1116,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_interface"
-version = "0.3.11"
+version = "0.4.0"
 dependencies = [
  "prost",
  "prost-build",
@@ -1102,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "lla_plugin_utils"
-version = "0.3.11"
+version = "0.4.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1362,6 +1385,12 @@ dependencies = [
  "smallvec",
  "windows-targets 0.52.6",
 ]
+
+[[package]]
+name = "pathdiff"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "petgraph"

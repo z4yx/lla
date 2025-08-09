@@ -1,10 +1,11 @@
-use crate::commands::args::Args;
+use crate::commands::args::{Args, OutputMode};
 use crate::config::Config;
 use crate::error::Result;
 use crate::filter::{
     CaseInsensitiveFilter, CompositeFilter, ExtensionFilter, FileFilter, FilterOperation,
     GlobFilter, PatternFilter, RegexFilter,
 };
+use crate::formatter::{csv as csv_writer, json as json_writer};
 use crate::formatter::{
     DefaultFormatter, FileFormatter, FuzzyFormatter, GitFormatter, GridFormatter, LongFormatter,
     RecursiveFormatter, SizeMapFormatter, TableFormatter, TimelineFormatter, TreeFormatter,
@@ -54,10 +55,40 @@ pub fn list_directory(
         decorated_files
     };
 
-    let formatted_output =
-        formatter.format_files(decorated_files.as_slice(), plugin_manager, args.depth)?;
-    println!("{}", formatted_output);
-    Ok(())
+    match args.output_mode {
+        OutputMode::Human => {
+            let formatted_output =
+                formatter.format_files(decorated_files.as_slice(), plugin_manager, args.depth)?;
+            println!("{}", formatted_output);
+            Ok(())
+        }
+        OutputMode::Json { pretty } => {
+            // Only include git status if git format was requested
+            let include_git_status = args.git_format;
+            json_writer::write_json_array_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                pretty,
+                include_git_status,
+            )
+        }
+        OutputMode::Ndjson => {
+            let include_git_status = args.git_format;
+            json_writer::write_ndjson_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                include_git_status,
+            )
+        }
+        OutputMode::Csv => {
+            let include_git_status = args.git_format;
+            csv_writer::write_csv_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                include_git_status,
+            )
+        }
+    }
 }
 
 pub fn get_format(args: &Args) -> &'static str {

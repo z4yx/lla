@@ -1,5 +1,5 @@
 use crate::config::{Config, ShortcutCommand};
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgGroup, ArgMatches, SubCommand};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
@@ -39,6 +39,7 @@ pub struct Args {
     pub almost_all: bool,
     pub dotfiles_only: bool,
     pub permission_format: String,
+    pub output_mode: OutputMode,
     pub command: Option<Command>,
 }
 
@@ -76,6 +77,14 @@ pub enum ConfigAction {
     Set(String, String),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutputMode {
+    Human,
+    Json { pretty: bool },
+    Ndjson,
+    Csv,
+}
+
 impl Args {
     fn build_cli(config: &Config) -> App<'_> {
         App::new(env!("CARGO_PKG_NAME"))
@@ -87,6 +96,31 @@ impl Args {
                     .help("The directory to list")
                     .index(1)
                     .default_value("."),
+            )
+            .arg(
+                Arg::with_name("json")
+                    .long("json")
+                    .help("Output a single JSON array"),
+            )
+            .arg(
+                Arg::with_name("ndjson")
+                    .long("ndjson")
+                    .help("Output newline-delimited JSON (one object per line)"),
+            )
+            .arg(
+                Arg::with_name("csv")
+                    .long("csv")
+                    .help("Output CSV with header row"),
+            )
+            .arg(
+                Arg::with_name("pretty")
+                    .long("pretty")
+                    .help("Pretty print JSON (only applies to --json)"),
+            )
+            .group(
+                ArgGroup::new("machine_output")
+                    .args(&["json", "ndjson", "csv"]) // mutually exclusive
+                    .multiple(false),
             )
             .arg(
                 Arg::with_name("depth")
@@ -497,6 +531,7 @@ impl Args {
                     almost_all: false,
                     dotfiles_only: false,
                     permission_format: config.permission_format.clone(),
+                    output_mode: OutputMode::Human,
                     command: Some(Command::Shortcut(ShortcutAction::Run(
                         potential_shortcut.clone(),
                         args[2..].to_vec(),
@@ -681,6 +716,18 @@ impl Args {
                 .value_of("permission-format")
                 .unwrap_or(&config.permission_format)
                 .to_string(),
+            output_mode: {
+                let pretty = matches.is_present("pretty");
+                if matches.is_present("json") {
+                    OutputMode::Json { pretty }
+                } else if matches.is_present("ndjson") {
+                    OutputMode::Ndjson
+                } else if matches.is_present("csv") {
+                    OutputMode::Csv
+                } else {
+                    OutputMode::Human
+                }
+            },
             command,
         }
     }

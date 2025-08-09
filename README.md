@@ -199,6 +199,54 @@ lla -R -d 3  # Set exploration depth
 The `-R` option can be integrated with other options to create a more specific view. For example, `lla -R -l`
 will show a detailed listing of all files and directories in the current directory.
 
+### Machine Output
+
+Stable, streaming machine-readable formats are available. These modes keep existing listing filters/sorts/depth behavior; only the output changes.
+
+- **--json**: Output a single JSON array (streamed). Use **--pretty** to pretty print.
+- **--ndjson**: Output newline-delimited JSON, one object per line.
+- **--csv**: Output CSV with a header row.
+
+Flags are mutually exclusive. **--pretty** only affects **--json**.
+
+JSON/NDJSON schema (stable fields):
+
+```
+{
+  "path": "src/main.rs",
+  "name": "main.rs",
+  "extension": "rs" | null,
+  "file_type": "file" | "dir" | "symlink" | "other",
+  "size_bytes": 1234,
+  "modified": "2024-05-01T12:34:56Z",
+  "created": "..." | null,
+  "accessed": "..." | null,
+  "mode_octal": "0644",
+  "owner_user": "mohamed" | null,
+  "owner_group": "staff" | null,
+  "inode": 1234567 | null,
+  "hard_links": 1 | null,
+  "symlink_target": "..." | null,
+  "is_hidden": false,
+  "git_status": "M." | null,
+  "plugin": { /* plugin-provided fields, if any */ }
+}
+```
+
+CSV columns (v1):
+
+```
+path,name,extension,file_type,size_bytes,modified,created,accessed,mode_octal,owner_user,owner_group,inode,hard_links,symlink_target,is_hidden,git_status
+```
+
+Examples:
+
+```bash
+lla --json --pretty
+lla --ndjson
+lla --csv
+```
+
 ## Command Reference
 
 ### Display Options
