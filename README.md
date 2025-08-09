@@ -108,6 +108,28 @@ lla -l
 
 <img src="https://github.com/user-attachments/assets/2a8d95e4-efd2-4bff-a905-9d9a892dc794" className="rounded-2xl" alt="long" />
 
+Options and tweaks:
+
+- Hide the group column (useful on single-user systems):
+
+  ```bash
+  lla -l --hide-group
+  ```
+
+- Show relative dates (e.g., "2h ago"):
+
+  ```bash
+  lla -l --relative-dates
+  ```
+
+To make these defaults, add to your config (`~/.config/lla/config.toml`):
+
+```toml
+[formatters.long]
+hide_group = true
+relative_dates = true
+```
+
 #### Tree Structure
 
 Hierarchical exploration of directory relationships:
@@ -161,6 +183,8 @@ lla -g --grid-ignore    # Grid view ignoring terminal width (Warning: may extend
 ```
 
 <img src="https://github.com/user-attachments/assets/b81d01ea-b830-4833-8791-7b62ff9137df" className="rounded-2xl" alt="grid" />
+
+Note: Grid output no longer appends a trailing blank newline.
 
 ### Specialized Views
 

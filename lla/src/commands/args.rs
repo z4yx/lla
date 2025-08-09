@@ -39,6 +39,8 @@ pub struct Args {
     pub almost_all: bool,
     pub dotfiles_only: bool,
     pub permission_format: String,
+    pub hide_group: bool,
+    pub relative_dates: bool,
     pub output_mode: OutputMode,
     pub command: Option<Command>,
 }
@@ -330,6 +332,16 @@ impl Args {
                     .possible_values(&["symbolic", "octal", "binary",  "verbose", "compact"])
                     .default_value(&config.permission_format),
             )
+            .arg(
+                Arg::with_name("hide-group")
+                    .long("hide-group")
+                    .help("Hide group column in long format"),
+            )
+            .arg(
+                Arg::with_name("relative-dates")
+                    .long("relative-dates")
+                    .help("Show relative dates (e.g., '2h ago') in long format"),
+            )
             .subcommand(
                 SubCommand::with_name("install")
                     .about("Install a plugin")
@@ -531,6 +543,8 @@ impl Args {
                     almost_all: false,
                     dotfiles_only: false,
                     permission_format: config.permission_format.clone(),
+                    hide_group: config.formatters.long.hide_group,
+                    relative_dates: config.formatters.long.relative_dates,
                     output_mode: OutputMode::Human,
                     command: Some(Command::Shortcut(ShortcutAction::Run(
                         potential_shortcut.clone(),
@@ -716,6 +730,9 @@ impl Args {
                 .value_of("permission-format")
                 .unwrap_or(&config.permission_format)
                 .to_string(),
+            hide_group: matches.is_present("hide-group") || config.formatters.long.hide_group,
+            relative_dates: matches.is_present("relative-dates")
+                || config.formatters.long.relative_dates,
             output_mode: {
                 let pretty = matches.is_present("pretty");
                 if matches.is_present("json") {

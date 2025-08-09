@@ -675,6 +675,8 @@ pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
         Box::new(LongFormatter::new(
             args.show_icons,
             args.permission_format.clone(),
+            args.hide_group,
+            args.relative_dates,
         ))
     } else if args.tree_format {
         Box::new(TreeFormatter::new(args.show_icons))

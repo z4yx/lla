@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Single-file listing:
   - Passing a regular file path now lists that single file (instead of erroring with Not a directory)
   - All formatters and machine outputs apply normally
+- Long format quality-of-life flags:
+  - `--hide-group`: Hide the group column (great for single-user systems). Also configurable via `formatters.long.hide_group` in the config file.
+  - `--relative-dates`: Show relative modified times (e.g., "2h ago"). Also configurable via `formatters.long.relative_dates`.
+  - Relative dates are powered by `chrono-humanize` for accurate human-friendly phrasing.
 
 ### Changed
 
@@ -33,11 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal: Introduced `OutputMode` in CLI args to route to human vs machine formatters.
 - Internal: Added a serializable adapter to normalize timestamps to ISO-8601 UTC and permissions to octal.
 - Docs: Updated README with a new "Machine Output" section including schema and examples.
+- Long format date column alignment is now consistent even when using relative dates.
+- Grid formatter no longer appends an extra trailing blank newline; output ends without an extra empty line.
 
 ### Fixed
 
 - Non-fatal metadata read failures are handled gracefully during machine output; entries still emit with nulls where needed and a warning on stderr, without corrupting stdout.
 - Graceful handling when the provided path is a single file or an archive: no erroneous directory reads
+- Relative date phrasing now correctly uses "X ago" for past times and "in X" for future times.
 
 ## [0.3.11] - 2025-01-09
 
