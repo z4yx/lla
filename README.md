@@ -118,6 +118,27 @@ lla -t -d 3  # Navigate up to 3 levels deep
 
 <img src="https://github.com/user-attachments/assets/cb32bfbb-eeb1-4701-889d-f3d42c7d4896" className="rounded-2xl" alt="tree" />
 
+#### Archive Introspection
+
+List archive contents as a virtual directory (no extraction). Supported: `.zip`, `.tar`, `.tar.gz`, `.tgz`.
+
+```
+lla my_archive.zip -t    # tree view
+lla project.tar.gz -l    # long view
+lla my_archive.tgz --json
+lla my_archive.zip -l -f ".rs"  # filter by extension on internal paths
+```
+
+#### Single-file Listing
+
+You can pass a single file path to list it directly with any view or machine output:
+
+```
+lla README.md          # default view
+lla Cargo.toml -l      # long view
+lla src/main.rs --json # machine output
+```
+
 ### Enhanced Organization
 
 #### Table Layout

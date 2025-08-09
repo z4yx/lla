@@ -10,6 +10,7 @@ pub trait FileLister {
     ) -> Result<Vec<PathBuf>>;
 }
 
+pub mod archive;
 mod basic;
 mod fuzzy;
 mod recursive;

@@ -1,5 +1,10 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [0.4.0] - 2025-01-10
 
 ### Added
@@ -13,6 +18,14 @@
   - `path`, `name`, `extension`, `file_type`, `size_bytes`, `modified`, `created`, `accessed`, `mode_octal`, `owner_user`, `owner_group`, `inode`, `hard_links`, `symlink_target`, `is_hidden`, `git_status`, and `plugin` container for plugin enrichments.
 - Streaming output writers to avoid unbounded memory growth on large listings.
 - Optional Git status integration into machine outputs when `-G` is used (no extra git work otherwise).
+- Archive introspection (no extraction to disk):
+  - Automatic detection for `.zip`, `.tar`, `.tar.gz`, `.tgz` when a single archive file is passed as the path
+  - Lists archive contents as a virtual directory and integrates with existing views: default, long, table, grid, tree, recursive
+  - Works with filters, sorting, depth control, and machine outputs (`--json`, `--ndjson`, `--csv`)
+  - Symlink targets in tar archives are exposed as `custom_fields["symlink_target"]`
+- Single-file listing:
+  - Passing a regular file path now lists that single file (instead of erroring with Not a directory)
+  - All formatters and machine outputs apply normally
 
 ### Changed
 
@@ -24,11 +37,7 @@
 ### Fixed
 
 - Non-fatal metadata read failures are handled gracefully during machine output; entries still emit with nulls where needed and a warning on stderr, without corrupting stdout.
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Graceful handling when the provided path is a single file or an archive: no erroneous directory reads
 
 ## [0.3.11] - 2025-01-09
 

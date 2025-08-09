@@ -50,3 +50,7 @@ num_cpus = "1.16"
 fuzzy-matcher = "0.3.7"
 csv = "1"
 pathdiff = "0.2"
+zip = { version = "1", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"
+libc = "0.2"
