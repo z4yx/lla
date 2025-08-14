@@ -95,7 +95,6 @@ impl FileFormatter for GridFormatter {
             current_col += 1;
         }
 
-        output.push('\n');
         Ok(output)
     }
 }

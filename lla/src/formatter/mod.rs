@@ -11,12 +11,15 @@ pub trait FileFormatter {
     ) -> Result<String>;
 }
 
+pub mod csv;
 mod default;
 mod fuzzy;
 mod git;
 mod grid;
+pub mod json;
 mod long;
 mod recursive;
+pub mod serializable;
 mod sizemap;
 mod table;
 mod timeline;

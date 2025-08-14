@@ -514,6 +514,21 @@ pub fn colorize_date(date: &std::time::SystemTime) -> ColoredString {
     }
 }
 
+pub fn colorize_date_relative(date: &std::time::SystemTime) -> ColoredString {
+    let dt: chrono::DateTime<chrono::Local> = (*date).into();
+    // Use signed difference "dt - now":
+    //  - Past times => negative duration => "X ago"
+    //  - Future times => positive duration => "in X"
+    let delta = dt.signed_duration_since(chrono::Local::now());
+    let text = chrono_humanize::HumanTime::from(delta).to_string();
+
+    if is_no_color() {
+        text.normal()
+    } else {
+        text.color(get_color(&get_theme().colors.date))
+    }
+}
+
 fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {

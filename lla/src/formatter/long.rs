@@ -6,6 +6,7 @@ use crate::utils::icons::format_with_icon;
 use console;
 use lla_plugin_interface::proto::DecoratedEntry;
 use once_cell::sync::Lazy;
+use unicode_width::UnicodeWidthStr;
 
 use std::collections::HashMap;
 use std::fs::Permissions;
@@ -21,13 +22,22 @@ static GROUP_CACHE: Lazy<Mutex<HashMap<u32, String>>> = Lazy::new(|| Mutex::new(
 pub struct LongFormatter {
     pub show_icons: bool,
     pub permission_format: String,
+    pub hide_group: bool,
+    pub relative_dates: bool,
 }
 
 impl LongFormatter {
-    pub fn new(show_icons: bool, permission_format: String) -> Self {
+    pub fn new(
+        show_icons: bool,
+        permission_format: String,
+        hide_group: bool,
+        relative_dates: bool,
+    ) -> Self {
         Self {
             show_icons,
             permission_format,
+            hide_group,
+            relative_dates,
         }
     }
 }
@@ -41,6 +51,25 @@ impl FileFormatter for LongFormatter {
     ) -> Result<String> {
         let min_size_len = 8;
 
+        // Precompute max visible width for the date column so it aligns when using relative dates
+        let max_date_len = files
+            .iter()
+            .map(|entry| {
+                let metadata = entry.metadata.as_ref().cloned().unwrap_or_default();
+                let modified = SystemTime::UNIX_EPOCH + Duration::from_secs(metadata.modified);
+                let date_colored = if self.relative_dates {
+                    colorize_date_relative(&modified)
+                } else {
+                    colorize_date(&modified)
+                };
+                let date_str = date_colored.to_string();
+                let stripped_bytes = strip_ansi_escapes::strip(&date_str).unwrap_or_default();
+                let stripped = String::from_utf8_lossy(&stripped_bytes);
+                stripped.width()
+            })
+            .max()
+            .unwrap_or(0);
+
         let max_user_len = files
             .iter()
             .map(|entry| {
@@ -53,17 +82,21 @@ impl FileFormatter for LongFormatter {
             .max()
             .unwrap_or(0);
 
-        let max_group_len = files
-            .iter()
-            .map(|entry| {
-                let gid = entry.metadata.as_ref().map_or(0, |m| m.gid);
-                let group = get_group_by_gid(gid)
-                    .map(|g| g.name().to_string_lossy().into_owned())
-                    .unwrap_or_else(|| gid.to_string());
-                group.len()
-            })
-            .max()
-            .unwrap_or(0);
+        let max_group_len = if self.hide_group {
+            0
+        } else {
+            files
+                .iter()
+                .map(|entry| {
+                    let gid = entry.metadata.as_ref().map_or(0, |m| m.gid);
+                    let group = get_group_by_gid(gid)
+                        .map(|g| g.name().to_string_lossy().into_owned())
+                        .unwrap_or_else(|| gid.to_string());
+                    group.len()
+                })
+                .max()
+                .unwrap_or(0)
+        };
 
         let mut output = String::new();
         for entry in files {
@@ -72,7 +105,18 @@ impl FileFormatter for LongFormatter {
             let perms = Permissions::from_mode(metadata.permissions);
             let permissions = colorize_permissions(&perms, Some(&self.permission_format));
             let modified = SystemTime::UNIX_EPOCH + Duration::from_secs(metadata.modified);
-            let modified_str = colorize_date(&modified);
+            let modified_colored = if self.relative_dates {
+                colorize_date_relative(&modified)
+            } else {
+                colorize_date(&modified)
+            };
+            // Left-align the date to the max visible width to match the existing layout
+            let modified_uncolored = String::from_utf8_lossy(
+                &strip_ansi_escapes::strip(&modified_colored.to_string()).unwrap_or_default(),
+            )
+            .to_string();
+            let date_padding = max_date_len.saturating_sub(modified_uncolored.width());
+            let modified_str = format!("{}{}", modified_colored, " ".repeat(date_padding));
             let path = Path::new(&entry.path);
             let colored_name = colorize_file_name(path).to_string();
             let name = colorize_file_name_with_icon(
@@ -97,7 +141,9 @@ impl FileFormatter for LongFormatter {
                 }
             };
 
-            let group = {
+            let group = if self.hide_group {
+                String::new()
+            } else {
                 let mut cache = GROUP_CACHE.lock().unwrap();
                 if let Some(cached_group) = cache.get(&gid) {
                     cached_group.clone()
@@ -135,19 +181,36 @@ impl FileFormatter for LongFormatter {
                 name
             };
 
-            output.push_str(&format!(
-                "{} {:>width_size$} {} {:<width_user$} {:<width_group$} {}{}\n",
-                permissions,
-                size,
-                modified_str,
-                colorize_user(&user),
-                colorize_group(&group),
-                name_with_target,
-                plugin_suffix,
-                width_size = min_size_len,
-                width_user = max_user_len,
-                width_group = max_group_len
-            ));
+            if self.hide_group {
+                output.push_str(&format!(
+                    "{} {:>width_size$} {} {:<width_user$} {}{}\n",
+                    permissions,
+                    size,
+                    modified_str,
+                    colorize_user(&user),
+                    name_with_target,
+                    plugin_suffix,
+                    width_size = min_size_len,
+                    width_user = max_user_len
+                ));
+            } else {
+                output.push_str(&format!(
+                    "{} {:>width_size$} {} {:<width_user$} {:<width_group$} {}{}\n",
+                    permissions,
+                    size,
+                    modified_str,
+                    colorize_user(&user),
+                    colorize_group(&group),
+                    name_with_target,
+                    plugin_suffix,
+                    width_size = min_size_len,
+                    width_user = max_user_len,
+                    width_group = max_group_len
+                ));
+            }
+        }
+        if output.ends_with('\n') {
+            output.pop();
         }
         Ok(output)
     }

@@ -1,15 +1,18 @@
-use crate::commands::args::Args;
+use crate::commands::args::{Args, OutputMode};
 use crate::config::Config;
 use crate::error::Result;
 use crate::filter::{
     CaseInsensitiveFilter, CompositeFilter, ExtensionFilter, FileFilter, FilterOperation,
     GlobFilter, PatternFilter, RegexFilter,
 };
+use crate::formatter::{csv as csv_writer, json as json_writer};
 use crate::formatter::{
     DefaultFormatter, FileFormatter, FuzzyFormatter, GitFormatter, GridFormatter, LongFormatter,
     RecursiveFormatter, SizeMapFormatter, TableFormatter, TimelineFormatter, TreeFormatter,
 };
-use crate::lister::{BasicLister, FileLister, FuzzyLister, RecursiveLister};
+use crate::lister::{
+    archive as archive_lister, BasicLister, FileLister, FuzzyLister, RecursiveLister,
+};
 use crate::plugin::PluginManager;
 use crate::sorter::{AlphabeticalSorter, DateSorter, FileSorter, SizeSorter, SortOptions};
 use lla_plugin_interface::proto::{DecoratedEntry, EntryMetadata};
@@ -46,6 +49,103 @@ pub fn list_directory(
     let formatter = create_formatter(args);
     let format = get_format(args);
 
+    // Archive auto-detection branch
+    let p = std::path::Path::new(&args.directory);
+    let path_is_archive = p.is_file() && archive_lister::is_archive_path_str(&args.directory);
+    if path_is_archive {
+        let mut decorated_files =
+            list_and_decorate_archive_entries(args, &filter, plugin_manager, format)?;
+        let decorated_files = if !args.tree_format && !args.recursive_format {
+            sort_files(decorated_files, &sorter, args)?
+        } else {
+            decorated_files
+        };
+
+        return match args.output_mode {
+            OutputMode::Human => {
+                let formatted_output = formatter.format_files(
+                    decorated_files.as_slice(),
+                    plugin_manager,
+                    args.depth,
+                )?;
+                println!("{}", formatted_output);
+                Ok(())
+            }
+            OutputMode::Json { pretty } => {
+                let include_git_status = args.git_format;
+                json_writer::write_json_array_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    pretty,
+                    include_git_status,
+                )
+            }
+            OutputMode::Ndjson => {
+                let include_git_status = args.git_format;
+                json_writer::write_ndjson_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    include_git_status,
+                )
+            }
+            OutputMode::Csv => {
+                let include_git_status = args.git_format;
+                csv_writer::write_csv_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    include_git_status,
+                )
+            }
+        };
+    }
+
+    // Single file path handling: allow listing one file
+    if p.is_file() {
+        let decorated_files = list_and_decorate_single_file(args, &filter, plugin_manager, format)?;
+        let decorated_files = if !args.tree_format && !args.recursive_format {
+            sort_files(decorated_files, &sorter, args)?
+        } else {
+            decorated_files
+        };
+
+        return match args.output_mode {
+            OutputMode::Human => {
+                let formatted_output = formatter.format_files(
+                    decorated_files.as_slice(),
+                    plugin_manager,
+                    args.depth,
+                )?;
+                println!("{}", formatted_output);
+                Ok(())
+            }
+            OutputMode::Json { pretty } => {
+                let include_git_status = args.git_format;
+                json_writer::write_json_array_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    pretty,
+                    include_git_status,
+                )
+            }
+            OutputMode::Ndjson => {
+                let include_git_status = args.git_format;
+                json_writer::write_ndjson_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    include_git_status,
+                )
+            }
+            OutputMode::Csv => {
+                let include_git_status = args.git_format;
+                csv_writer::write_csv_stream(
+                    decorated_files.into_iter(),
+                    plugin_manager,
+                    include_git_status,
+                )
+            }
+        };
+    }
+
     let decorated_files = list_and_decorate_files(args, &lister, &filter, plugin_manager, format)?;
 
     let decorated_files = if !args.tree_format && !args.recursive_format {
@@ -54,10 +154,40 @@ pub fn list_directory(
         decorated_files
     };
 
-    let formatted_output =
-        formatter.format_files(decorated_files.as_slice(), plugin_manager, args.depth)?;
-    println!("{}", formatted_output);
-    Ok(())
+    match args.output_mode {
+        OutputMode::Human => {
+            let formatted_output =
+                formatter.format_files(decorated_files.as_slice(), plugin_manager, args.depth)?;
+            println!("{}", formatted_output);
+            Ok(())
+        }
+        OutputMode::Json { pretty } => {
+            // Only include git status if git format was requested
+            let include_git_status = args.git_format;
+            json_writer::write_json_array_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                pretty,
+                include_git_status,
+            )
+        }
+        OutputMode::Ndjson => {
+            let include_git_status = args.git_format;
+            json_writer::write_ndjson_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                include_git_status,
+            )
+        }
+        OutputMode::Csv => {
+            let include_git_status = args.git_format;
+            csv_writer::write_csv_stream(
+                decorated_files.into_iter(),
+                plugin_manager,
+                include_git_status,
+            )
+        }
+    }
 }
 
 pub fn get_format(args: &Args) -> &'static str {
@@ -265,6 +395,176 @@ pub fn list_and_decorate_files(
     Ok(entries)
 }
 
+pub fn list_and_decorate_archive_entries(
+    args: &Args,
+    filter: &Arc<dyn FileFilter + Send + Sync>,
+    plugin_manager: &mut PluginManager,
+    format: &str,
+) -> Result<Vec<DecoratedEntry>> {
+    use std::path::Path;
+
+    let archive_path = Path::new(&args.directory);
+    let lower = args.directory.to_lowercase();
+    let mut entries = if lower.ends_with(".zip") {
+        archive_lister::read_zip(archive_path)?
+    } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        archive_lister::read_tar_gz(archive_path)?
+    } else if lower.ends_with(".tar") {
+        archive_lister::read_tar_file(archive_path)?
+    } else {
+        return Err(crate::error::LlaError::Other(
+            "Unsupported archive format".to_string(),
+        ));
+    };
+
+    let root_name = archive_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    // Filter and options
+    let mut filtered: Vec<DecoratedEntry> = Vec::with_capacity(entries.len());
+    for mut entry in entries.into_iter() {
+        let pb = PathBuf::from(&entry.path);
+
+        // Exclude synthetic root from all views
+        if pb == PathBuf::from(&root_name) {
+            continue;
+        }
+
+        // For non-tree/non-recursive views, restrict to top-level only unless long format is used.
+        // Long format on archives shows the full contents for convenience.
+        let restrict_to_top_level =
+            !args.tree_format && !args.recursive_format && !args.long_format;
+        if restrict_to_top_level {
+            let parent = pb.parent().map(|p| p.to_path_buf());
+            if parent.as_deref() != Some(Path::new(&root_name)) {
+                continue;
+            }
+        }
+
+        let md = entry.metadata.clone().unwrap_or(EntryMetadata {
+            size: 0,
+            modified: 0,
+            accessed: 0,
+            created: 0,
+            is_dir: false,
+            is_file: false,
+            is_symlink: false,
+            permissions: 0,
+            uid: 0,
+            gid: 0,
+        });
+
+        let is_dotfile = pb
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| n.starts_with('.'))
+            .unwrap_or(false);
+
+        let is_current_or_parent_dir = pb
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| n == "." || n == "..")
+            .unwrap_or(false);
+
+        if args.dotfiles_only && !is_dotfile {
+            continue;
+        } else if args.no_dotfiles && is_dotfile {
+            continue;
+        } else if args.almost_all && is_current_or_parent_dir {
+            continue;
+        }
+
+        let should_include = if args.dirs_only {
+            md.is_dir
+        } else if args.files_only {
+            md.is_file
+        } else if args.symlinks_only {
+            md.is_symlink && !args.no_symlinks
+        } else {
+            let include_dirs = !args.no_dirs;
+            let include_files = !args.no_files;
+            let include_symlinks = !args.no_symlinks;
+
+            (md.is_dir && include_dirs)
+                || (md.is_file && include_files)
+                || (md.is_symlink && include_symlinks)
+        };
+
+        if !should_include {
+            continue;
+        }
+
+        // Apply name/path filters
+        if !filter
+            .filter_files(std::slice::from_ref(&pb))
+            .map(|v| !v.is_empty())
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
+        plugin_manager.decorate_entry(&mut entry, format);
+        filtered.push(entry);
+    }
+
+    Ok(filtered)
+}
+
+pub fn list_and_decorate_single_file(
+    args: &Args,
+    filter: &Arc<dyn FileFilter + Send + Sync>,
+    plugin_manager: &mut PluginManager,
+    format: &str,
+) -> Result<Vec<DecoratedEntry>> {
+    use std::fs;
+    use std::path::Path;
+
+    let path = Path::new(&args.directory);
+    let mut entries: Vec<DecoratedEntry> = Vec::with_capacity(1);
+
+    // Apply filter against this single path
+    if !filter
+        .filter_files(std::slice::from_ref(&path.to_path_buf()))
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
+    {
+        return Ok(entries);
+    }
+
+    // Read metadata and map to EntryMetadata
+    let fs_metadata = path.symlink_metadata()?;
+    let mut metadata = convert_metadata(&fs_metadata);
+
+    if args.include_dirs && metadata.is_dir {
+        if let Ok(dir_size) = calculate_dir_size(path) {
+            metadata.size = dir_size;
+        }
+    }
+
+    let mut custom_fields = HashMap::new();
+    if metadata.is_symlink {
+        if let Ok(target) = fs::read_link(path) {
+            custom_fields.insert(
+                "symlink_target".to_string(),
+                target.to_string_lossy().into_owned(),
+            );
+        }
+    }
+
+    let mut entry = DecoratedEntry {
+        path: path.to_string_lossy().into_owned(),
+        metadata: Some(metadata),
+        custom_fields,
+    };
+
+    plugin_manager.decorate_entry(&mut entry, format);
+    entries.push(entry);
+    Ok(entries)
+}
+
 pub fn sort_files(
     files: Vec<DecoratedEntry>,
     sorter: &Arc<dyn FileSorter + Send + Sync>,
@@ -375,6 +675,8 @@ pub fn create_formatter(args: &Args) -> Box<dyn FileFormatter> {
         Box::new(LongFormatter::new(
             args.show_icons,
             args.permission_format.clone(),
+            args.hide_group,
+            args.relative_dates,
         ))
     } else if args.tree_format {
         Box::new(TreeFormatter::new(args.show_icons))

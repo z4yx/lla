@@ -51,6 +51,8 @@ pub struct FormatterConfig {
     #[serde(default)]
     pub grid: GridFormatterConfig,
     #[serde(default)]
+    pub long: LongFormatterConfig,
+    #[serde(default)]
     pub sizemap: SizeMapConfig,
 }
 
@@ -59,7 +61,25 @@ impl Default for FormatterConfig {
         Self {
             tree: TreeFormatterConfig::default(),
             grid: GridFormatterConfig::default(),
+            long: LongFormatterConfig::default(),
             sizemap: SizeMapConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LongFormatterConfig {
+    #[serde(default)]
+    pub hide_group: bool,
+    #[serde(default)]
+    pub relative_dates: bool,
+}
+
+impl Default for LongFormatterConfig {
+    fn default() -> Self {
+        Self {
+            hide_group: false,
+            relative_dates: false,
         }
     }
 }
@@ -343,6 +363,16 @@ ignore_width = {}
 # Default: 200 columns
 max_width = {}
 
+# Long formatter configuration
+[formatters.long]
+# Hide the group column in long format
+# Default: false
+hide_group = {}
+
+# Show relative dates (e.g., "2h ago") in long format
+# Default: false
+relative_dates = {}
+
 # Lister-specific configurations
 [listers.recursive]
 # Maximum number of entries to process in recursive listing
@@ -380,6 +410,8 @@ ignore_patterns = {}"#,
             self.formatters.tree.max_lines.unwrap_or(0),
             self.formatters.grid.ignore_width,
             self.formatters.grid.max_width,
+            self.formatters.long.hide_group,
+            self.formatters.long.relative_dates,
             self.listers.recursive.max_entries.unwrap_or(0),
             serde_json::to_string(&self.listers.fuzzy.ignore_patterns).unwrap(),
         );
