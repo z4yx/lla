@@ -4,6 +4,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::cmp;
 use std::time::Duration;
 
+type HelpCommand = (String, String, Vec<String>);
+type HelpSection = (String, Vec<HelpCommand>);
+
 pub struct Spinner {
     progress_bar: ProgressBar,
 }
@@ -11,12 +14,11 @@ pub struct Spinner {
 impl Spinner {
     pub fn new() -> Self {
         let pb = ProgressBar::new_spinner();
-        pb.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.green} {msg}")
-                .unwrap()
-                .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"),
-        );
+        let style = ProgressStyle::default_spinner()
+            .template("{spinner:.green} {msg}")
+            .unwrap_or_else(|_| ProgressStyle::default_spinner())
+            .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏");
+        pb.set_style(style);
         pb.enable_steady_tick(Duration::from_millis(80));
         Self { progress_bar: pb }
     }
@@ -34,6 +36,12 @@ impl Spinner {
     }
 }
 
+impl Default for Spinner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for Spinner {
     fn drop(&mut self) {
         self.finish();
@@ -42,7 +50,7 @@ impl Drop for Spinner {
 
 pub struct HelpFormatter {
     title: String,
-    sections: Vec<(String, Vec<(String, String, Vec<String>)>)>,
+    sections: Vec<HelpSection>,
 }
 
 impl HelpFormatter {
@@ -99,17 +107,17 @@ impl HelpFormatter {
                 );
                 output.push_str("\n    ");
                 output.push_str(description);
-                output.push_str("\n");
+                output.push('\n');
 
                 if !examples.is_empty() {
                     output.push_str("\n    Examples:\n");
                     for example in examples {
                         output.push_str("      • ");
                         output.push_str(example);
-                        output.push_str("\n");
+                        output.push('\n');
                     }
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
         }
 
@@ -211,6 +219,12 @@ impl List {
         output.push('─');
         output.push('\n');
         output
+    }
+}
+
+impl Default for List {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -352,68 +366,89 @@ impl BoxComponent {
     pub fn render(&self) -> String {
         let chars = self.style.get_chars();
         let mut output = String::new();
-        output.push('\n');
         let lines: Vec<&str> = self.content.lines().collect();
+
+        let term_width = console::Term::stdout().size().1 as usize;
+        let max_inner_width = term_width.saturating_sub(2).max(1);
 
         let content_width = lines
             .iter()
-            .map(|line| console::measure_text_width(line))
+            .map(|line| visible_width(line))
             .max()
             .unwrap_or(0);
-        let title_width = self
-            .title
-            .as_ref()
-            .map(|t| console::measure_text_width(t))
-            .unwrap_or(0);
-        let inner_width = cmp::max(content_width, title_width) + self.padding * 2;
-        let total_width = self.width.unwrap_or(inner_width);
+        let title_width = self.title.as_ref().map(|t| visible_width(t)).unwrap_or(0);
+        let minimum_title_width = if self.title.is_some() {
+            title_width.saturating_add(3)
+        } else {
+            0
+        };
+        let desired_inner_width = self
+            .width
+            .unwrap_or_else(|| cmp::max(content_width + self.padding * 2, minimum_title_width));
+        let inner_width = cmp::min(
+            cmp::max(desired_inner_width, minimum_title_width).max(1),
+            max_inner_width,
+        );
+        let max_content_visible = inner_width.saturating_sub(self.padding * 2);
 
         output.push(chars.top_left);
         if let Some(title) = &self.title {
-            output.push(chars.horizontal);
-            output.push(' ');
-            output.push_str(title);
-            output.push(' ');
-            let remaining = total_width.saturating_sub(title_width + 4);
-            output.push_str(&chars.horizontal.to_string().repeat(remaining));
+            let title_vis = visible_width(title);
+            let available_for_title = inner_width.saturating_sub(3);
+            if title_vis <= available_for_title {
+                output.push(chars.horizontal);
+                output.push(' ');
+                output.push_str(title);
+                output.push(' ');
+                let remaining = inner_width.saturating_sub(title_vis + 3);
+                output.push_str(&chars.horizontal.to_string().repeat(remaining));
+            } else {
+                let truncated = console::truncate_str(title, available_for_title, "…");
+                output.push(chars.horizontal);
+                output.push(' ');
+                output.push_str(&truncated);
+                output.push(' ');
+                let trunc_vis = visible_width(&truncated);
+                let remaining = inner_width.saturating_sub(trunc_vis + 3);
+                output.push_str(&chars.horizontal.to_string().repeat(remaining));
+            }
         } else {
-            output.push_str(&chars.horizontal.to_string().repeat(total_width));
+            output.push_str(&chars.horizontal.to_string().repeat(inner_width));
         }
         output.push(chars.top_right);
         output.push('\n');
 
-        for _ in 0..self.padding {
-            output.push(chars.vertical);
-            output.push_str(&" ".repeat(total_width));
-            output.push(chars.vertical);
-            output.push('\n');
-        }
-
         for line in lines {
+            let line_width = visible_width(line);
             output.push(chars.vertical);
             output.push_str(&" ".repeat(self.padding));
-            output.push_str(line);
-            let padding =
-                total_width.saturating_sub(console::measure_text_width(line) + self.padding);
-            output.push_str(&" ".repeat(padding));
-            output.push(chars.vertical);
-            output.push('\n');
-        }
-
-        for _ in 0..self.padding {
-            output.push(chars.vertical);
-            output.push_str(&" ".repeat(total_width));
+            if line_width <= max_content_visible {
+                output.push_str(line);
+                let padding = inner_width.saturating_sub(line_width + self.padding);
+                output.push_str(&" ".repeat(padding));
+            } else {
+                let truncated =
+                    console::truncate_str(line, max_content_visible.saturating_sub(1), "…");
+                let trunc_vis = visible_width(&truncated);
+                output.push_str(&truncated);
+                let padding = inner_width.saturating_sub(trunc_vis + self.padding);
+                output.push_str(&" ".repeat(padding));
+            }
             output.push(chars.vertical);
             output.push('\n');
         }
 
         output.push(chars.bottom_left);
-        output.push_str(&chars.horizontal.to_string().repeat(total_width));
+        output.push_str(&chars.horizontal.to_string().repeat(inner_width));
         output.push(chars.bottom_right);
         output.push('\n');
 
         output
     }
+}
+
+fn visible_width(value: &str) -> usize {
+    console::measure_text_width(&console::strip_ansi_codes(value))
 }
 
 pub struct LlaDialoguerTheme {
@@ -435,9 +470,9 @@ impl LlaDialoguerTheme {
         let mut symbols = std::collections::HashMap::new();
         symbols.insert("error".to_string(), "✘".to_string());
         symbols.insert("success".to_string(), "✔".to_string());
-        symbols.insert("pointer".to_string(), "➜".to_string());
-        symbols.insert("unchecked".to_string(), "◯".to_string());
-        symbols.insert("checked".to_string(), "◉".to_string());
+        symbols.insert("pointer".to_string(), "›".to_string());
+        symbols.insert("unchecked".to_string(), "○".to_string());
+        symbols.insert("checked".to_string(), "●".to_string());
         symbols.insert("separator".to_string(), "•".to_string());
         symbols.insert("prompt".to_string(), "⟩".to_string());
         symbols.insert("bullet".to_string(), " ".to_string());
@@ -447,7 +482,7 @@ impl LlaDialoguerTheme {
         symbols
     }
 
-    pub fn default() -> Self {
+    fn default_theme() -> Self {
         let mut colors = std::collections::HashMap::new();
         colors.insert("success".to_string(), "bright_green".to_string());
         colors.insert("info".to_string(), "cyan".to_string());
@@ -495,13 +530,20 @@ impl LlaDialoguerTheme {
     fn format_select_prefix(&self, active: bool) -> String {
         if active {
             format!(
-                "{} {}",
-                self.get_symbol("pointer").color(self.get_color("accent")),
-                self.get_symbol("bullet").color(self.get_color("prompt"))
+                " {} ",
+                self.get_symbol("pointer")
+                    .color(self.get_color("accent"))
+                    .bold(),
             )
         } else {
             "   ".to_string()
         }
+    }
+}
+
+impl Default for LlaDialoguerTheme {
+    fn default() -> Self {
+        Self::default_theme()
     }
 }
 
@@ -589,33 +631,59 @@ impl dialoguer::theme::Theme for LlaDialoguerTheme {
     ) -> std::fmt::Result {
         let padding = " ".repeat(self.padding);
         let check_symbol = if checked {
-            format!(
-                "{}{}",
-                self.get_symbol("checked").color(self.get_color("success")),
-                "·".color(self.get_color("gradient2"))
-            )
+            self.get_symbol("checked")
+                .color(self.get_color("success"))
+                .bold()
+                .to_string()
         } else {
-            format!(
-                "{}{}",
-                self.get_symbol("unchecked")
-                    .color(self.get_color("inactive")),
-                " ".color(self.get_color("gradient3"))
-            )
+            self.get_symbol("unchecked")
+                .color(self.get_color("inactive"))
+                .to_string()
         };
 
-        let text_style = if active {
-            text.color(self.get_color("highlight")).bold()
-        } else {
-            text.color(self.get_color("inactive"))
+        let text_style = match (active, checked) {
+            (true, _) => text.color(self.get_color("highlight")).bold(),
+            (false, true) => text.color(self.get_color("info")),
+            (false, false) => text.color(self.get_color("inactive")),
         };
 
         write!(
             f,
-            "{}{}{} {}",
+            "{}{}{}  {}",
             padding,
             self.format_select_prefix(active),
             check_symbol,
             text_style
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plain_width(line: &str) -> usize {
+        console::measure_text_width(&console::strip_ansi_codes(line))
+    }
+
+    #[test]
+    fn box_component_renders_compact_equal_width_lines() {
+        let rendered = BoxComponent::new("  Directory  │  ./plugins/folder_cleaner/")
+            .style(BoxStyle::Rounded)
+            .title("Source")
+            .padding(1)
+            .render();
+        let lines = rendered.lines().collect::<Vec<_>>();
+
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].starts_with('╭'));
+        assert!(lines[0].ends_with('╮'));
+        assert!(lines[1].starts_with('│'));
+        assert!(lines[1].ends_with('│'));
+        assert!(lines[2].starts_with('╰'));
+        assert!(lines[2].ends_with('╯'));
+
+        let width = plain_width(lines[0]);
+        assert!(lines.iter().all(|line| plain_width(line) == width));
     }
 }

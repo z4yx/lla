@@ -45,6 +45,12 @@ impl<C: PluginConfig + Default> BasePlugin<C> {
     }
 }
 
+impl<C: PluginConfig + Default> Default for BasePlugin<C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait ConfigurablePlugin {
     type Config: PluginConfig;
 
@@ -119,6 +125,9 @@ pub trait ProtobufHandler {
             Some(proto::plugin_message::Message::Action(req)) => {
                 Ok(PluginRequest::PerformAction(req.action, req.args))
             }
+            Some(proto::plugin_message::Message::ListActions(_)) => {
+                Ok(PluginRequest::GetAvailableActions)
+            }
             _ => Err("Invalid request type".to_string()),
         }
     }
@@ -174,6 +183,20 @@ pub trait ProtobufHandler {
                     error: Some(e),
                 }),
             },
+            PluginResponse::AvailableActions(actions) => {
+                let proto_actions: Vec<proto::ActionInfo> = actions
+                    .into_iter()
+                    .map(|action| proto::ActionInfo {
+                        name: action.name,
+                        usage: action.usage,
+                        description: action.description,
+                        examples: action.examples,
+                    })
+                    .collect();
+                proto::plugin_message::Message::ListActionsResponse(proto::ListActionsResponse {
+                    actions: proto_actions,
+                })
+            }
             PluginResponse::Error(e) => proto::plugin_message::Message::ErrorResponse(e),
         };
 
@@ -181,8 +204,12 @@ pub trait ProtobufHandler {
             message: Some(response_msg),
         };
         let mut buf = bytes::BytesMut::with_capacity(proto_msg.encoded_len());
-        proto_msg.encode(&mut buf).unwrap();
-        buf.to_vec()
+        proto_msg
+            .encode(&mut buf)
+            .map(|_| buf.to_vec())
+            .unwrap_or_else(|e| {
+                self.encode_error(&format!("failed to encode plugin response: {}", e))
+            })
     }
 
     fn encode_error(&self, error: &str) -> Vec<u8> {
@@ -193,7 +220,9 @@ pub trait ProtobufHandler {
             )),
         };
         let mut buf = bytes::BytesMut::with_capacity(error_msg.encoded_len());
-        error_msg.encode(&mut buf).unwrap();
+        if error_msg.encode(&mut buf).is_err() {
+            return Vec::new();
+        }
         buf.to_vec()
     }
 }

@@ -1,85 +1,154 @@
 name: Release
 
 on:
-  pull_request_target:
+  pull_request:
     types: [closed]
     branches: [main]
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to publish or resume (for example v0.5.5)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  check_release:
+  validate:
+    name: Validate Release
     if: |
-      (github.event_name == 'workflow_dispatch' && github.actor == 'chaqchase') ||
+      github.event_name != 'pull_request' ||
       (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release'))
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
-      should_release: ${{ steps.check_version.outputs.should_release }}
-      current_version: ${{ steps.check_version.outputs.current_version }}
+      release_tag: ${{ steps.context.outputs.release_tag }}
+      release_version: ${{ steps.context.outputs.release_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event_name == 'pull_request' && 'main' || github.ref }}
 
-      - name: Check version changes
-        id: check_version
+      - name: Resolve release context
+        id: context
         run: |
-          # Get the latest release version
-          OLD_VERSION=$(gh release view --json tagName --jq '.tagName' | sed 's/^v//' || echo "0.0.0")
-
-          # Get the current version from Cargo.toml
-          CURRENT_VERSION=$(sed -n '/^\[workspace\.package\]/,/^\[/p' Cargo.toml | grep '^version = ' | cut -d '"' -f 2)
-
-          echo "Old version: $OLD_VERSION"
-          echo "Current version: $CURRENT_VERSION"
-
-          if [ "$OLD_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Version changed from $OLD_VERSION to $CURRENT_VERSION"
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            release_tag="${{ inputs.release_tag }}"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            source .github/scripts/release_helpers.sh
+            release_tag="v$(workspace_version)"
           else
-            echo "Version unchanged"
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+            release_tag="${GITHUB_REF_NAME}"
           fi
+          release_version="${release_tag#v}"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag, versions, changelog, and release state
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.context.outputs.release_tag }}
+          RELEASE_VERSION: ${{ steps.context.outputs.release_version }}
+          ALLOW_EXISTING_RELEASE: ${{ github.event_name == 'workflow_dispatch' }}
+          CREATE_RELEASE_TAG: ${{ github.event_name == 'pull_request' }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
 
-  build:
-    needs: check_release
-    if: needs.check_release.outputs.should_release == 'true'
-    name: Build Release Binaries
+          validate_semver_tag "$RELEASE_TAG"
+          validate_release_versions "$RELEASE_VERSION"
+          validate_changelog_section "$RELEASE_VERSION"
+          validate_crates_io_state "$RELEASE_VERSION"
+
+          if [[ "$CREATE_RELEASE_TAG" == "true" ]]; then
+            if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+              log_note "Tag $RELEASE_TAG already exists"
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag "$RELEASE_TAG"
+              git push origin "$RELEASE_TAG"
+            fi
+          fi
+
+          validate_tag_on_main "$RELEASE_TAG"
+
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' >/tmp/release_is_draft 2>/dev/null; then
+            is_draft="$(cat /tmp/release_is_draft)"
+            if [[ "$ALLOW_EXISTING_RELEASE" != "true" && "$is_draft" != "true" ]]; then
+              log_error "Release $RELEASE_TAG already exists and is published. Use workflow_dispatch to intentionally resume it."
+              exit 1
+            fi
+          fi
+
+  quality:
+    name: Release Quality Gates
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  build_core:
+    name: Build CLI (${{ matrix.artifact_name }})
+    needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          # Linux builds
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: lla-linux-amd64
-            pkg_formats: "deb,rpm,apk,pacman"
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             artifact_name: lla-linux-arm64
             cross_compile: true
-            pkg_formats: "deb,rpm,apk,pacman"
           - os: ubuntu-latest
             target: i686-unknown-linux-gnu
             artifact_name: lla-linux-i686
             cross_compile: true
-            pkg_formats: "deb,rpm,apk,pacman"
-
-          # macOS builds
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact_name: lla-macos-amd64
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: lla-macos-arm64
-
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
 
       - name: Setup Protoc
         uses: arduino/setup-protoc@v3
@@ -87,50 +156,254 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.71.0
+          components: rustfmt, clippy
           targets: ${{ matrix.target }}
 
       - name: Install cross-compilation tools
         if: matrix.cross_compile && runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-i686-linux-gnu
-          sudo apt-get install -y crossbuild-essential-arm64 crossbuild-essential-i386
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-i686-linux-gnu crossbuild-essential-arm64 crossbuild-essential-i386
 
       - name: Set cross-compilation environment
         if: matrix.cross_compile && runner.os == 'Linux'
         run: |
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc" >> "$GITHUB_ENV"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
 
-      - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p lla
 
-      - name: Prepare binary
-        run: |
-          cp target/${{ matrix.target }}/release/lla ${{ matrix.artifact_name }}
+      - name: Prepare binary artifact
+        run: cp "target/${{ matrix.target }}/release/lla" "${{ matrix.artifact_name }}"
 
-      - name: Upload artifact
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: core-${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
 
-  publish:
-    needs: [check_release, build]
-    if: needs.check_release.outputs.should_release == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  build_plugins:
+    name: Build Plugins (${{ matrix.os_label }}-${{ matrix.arch_label }})
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            os_label: linux
+            arch_label: amd64
+          - runner: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            os_label: linux
+            arch_label: arm64
+          - runner: ubuntu-22.04
+            target: i686-unknown-linux-gnu
+            os_label: linux
+            arch_label: i686
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            os_label: macos
+            arch_label: amd64
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            os_label: macos
+            arch_label: arm64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cross toolchain
+        if: runner.os == 'Linux' && (contains(matrix.target, 'aarch64') || contains(matrix.target, 'i686'))
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-i686-linux-gnu crossbuild-essential-arm64 crossbuild-essential-i386
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+          elif [[ "${{ matrix.target }}" == "i686-unknown-linux-gnu" ]]; then
+            echo "CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build plugin archives
+        run: ./scripts/build_plugins.sh --target ${{ matrix.target }}
+
+      - name: Upload plugin artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugins-${{ matrix.os_label }}-${{ matrix.arch_label }}
+          path: |
+            dist/plugins-${{ matrix.os_label }}-${{ matrix.arch_label }}.tar.gz
+            dist/plugins-${{ matrix.os_label }}-${{ matrix.arch_label }}.zip
+
+  build_packages:
+    name: Build OS Packages
+    needs: [validate, build_core]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validate.outputs.release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+
+      - name: Download Linux CLI binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: core_binaries
+          pattern: core-lla-linux-*
+          merge-multiple: true
+
+      - name: Install nFPM
+        run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install -y nfpm gettext-base
+          nfpm --version
+
+      - name: Generate packages
+        run: |
+          set -euo pipefail
+          mkdir -p packages
+
+          for binary in core_binaries/lla-linux-*; do
+            [ -f "$binary" ] || continue
+            artifact_name="$(basename "$binary")"
+
+            case "$artifact_name" in
+              *amd64)
+                ARCH="amd64"
+                DEB_ARCH="amd64"
+                RPM_ARCH="x86_64"
+                APK_ARCH="x86_64"
+                PACMAN_ARCH="x86_64"
+                ;;
+              *arm64)
+                ARCH="arm64"
+                DEB_ARCH="arm64"
+                RPM_ARCH="aarch64"
+                APK_ARCH="aarch64"
+                PACMAN_ARCH="aarch64"
+                ;;
+              *i686)
+                ARCH="386"
+                DEB_ARCH="i386"
+                RPM_ARCH="i686"
+                APK_ARCH="x86"
+                PACMAN_ARCH="i686"
+                ;;
+              *)
+                echo "Skipping unsupported artifact $artifact_name"
+                continue
+                ;;
+            esac
+
+            export VERSION="$RELEASE_VERSION"
+            export ARCH
+            export BINARY_PATH="$binary"
+
+            tmp_config="$(mktemp)"
+            envsubst < nfpm.yaml > "$tmp_config"
+
+            nfpm pkg --config "$tmp_config" --packager deb --target "packages/lla_${VERSION}_${DEB_ARCH}.deb"
+            nfpm pkg --config "$tmp_config" --packager rpm --target "packages/lla-${VERSION}-1.${RPM_ARCH}.rpm"
+            nfpm pkg --config "$tmp_config" --packager apk --target "packages/lla-${VERSION}-r0.${APK_ARCH}.apk"
+            nfpm pkg --config "$tmp_config" --packager archlinux --target "packages/lla-${VERSION}-1-${PACMAN_ARCH}.pkg.tar.zst"
+
+            rm -f "$tmp_config"
+          done
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packages/*
+
+  package_themes:
+    name: Package Themes
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+
+      - name: Create themes archive
+        run: find themes -name "*.toml" -type f | sort | zip themes.zip -@
+
+      - name: Upload themes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: themes
+          path: themes.zip
+
+  collect_assets:
+    name: Verify Release Assets
+    needs: [validate, quality, build_core, build_plugins, build_packages, package_themes]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: raw_assets
+
+      - name: Flatten and verify assets
+        run: |
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
+
+          mkdir -p release_assets
+          find raw_assets -type f -print0 | while IFS= read -r -d '' asset; do
+            cp "$asset" "release_assets/$(basename "$asset")"
+          done
+
+          generate_checksums release_assets release_assets/SHA256SUMS
+          write_expected_assets "$RELEASE_VERSION" EXPECTED_ASSETS
+          check_expected_files EXPECTED_ASSETS release_assets
+          create_release_notes "$RELEASE_TAG" "$RELEASE_VERSION" release_assets/SHA256SUMS RELEASE_NOTES.md
+          cp RELEASE_NOTES.md release_assets/RELEASE_NOTES.md
+
+      - name: Upload verified release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-assets
+          path: release_assets/*
+
+  publish_crates:
+    name: Publish Crates
+    needs: [validate, collect_assets]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validate.outputs.release_version }}
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
 
       - name: Setup Protoc
         uses: arduino/setup-protoc@v3
@@ -138,178 +411,101 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.71.0
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Update dependency version
+      - name: Publish crates.io packages
         run: |
-          VERSION="${{ needs.check_release.outputs.current_version }}"
-          # Update the version in lla/Cargo.toml
-          sed -i 's/version = "[0-9]*\.[0-9]*\.[0-9]*"/version = "'$VERSION'"/' lla/Cargo.toml
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
 
-      - name: Check and publish to crates.io
-        env:
-          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: |
-          cargo login ${{ secrets.CRATES_IO_TOKEN }}
-
-          # Get current version without 'v' prefix
-          VERSION="${{ needs.check_release.outputs.current_version }}"
-
-          # Check if lla_plugin_interface version exists (using awk to get just the version)
-          PUBLISHED_VERSION=$(cargo search lla_plugin_interface --limit 1 | awk -F '"' '{print $2}')
-
-          if [ "$PUBLISHED_VERSION" != "$VERSION" ]; then
-            echo "Publishing lla_plugin_interface v$VERSION"
-            cargo publish -p lla_plugin_interface
-            # Wait for crates.io indexing
-            sleep 30
-          else
-            echo "lla_plugin_interface v$VERSION already published, skipping..."
+          if [[ -z "${CRATES_IO_TOKEN:-}" ]]; then
+            log_error "CRATES_IO_TOKEN secret is required"
+            exit 1
           fi
 
-          # Check and publish lla_plugin_utils
-          PUBLISHED_VERSION=$(cargo search lla_plugin_utils --limit 1 | awk -F '"' '{print $2}')
-          if [ "$PUBLISHED_VERSION" != "$VERSION" ]; then
-            echo "Publishing lla_plugin_utils v$VERSION"
-            cargo publish -p lla_plugin_utils
-            # Wait for crates.io indexing
-            sleep 30
-          else
-            echo "lla_plugin_utils v$VERSION already published, skipping..."
-          fi
+          publish_crate_if_needed() {
+            local crate_name="$1"
+            local wait_after="${2:-false}"
 
-          # Check and publish lla
-          PUBLISHED_VERSION=$(cargo search lla --limit 1 | awk -F '"' '{print $2}')
-          if [ "$PUBLISHED_VERSION" != "$VERSION" ]; then
-            echo "Publishing lla v$VERSION"
-            cargo publish -p lla
-          else
-            echo "lla v$VERSION already published, skipping..."
-          fi
+            if crate_version_published "$crate_name" "$RELEASE_VERSION"; then
+              log_note "$crate_name $RELEASE_VERSION is already published; skipping"
+              return 0
+            fi
 
-  create_release:
-    needs: [check_release, build, publish]
-    if: needs.check_release.outputs.should_release == 'true'
+            cargo publish -p "$crate_name" --dry-run
+            cargo publish -p "$crate_name" --token "$CRATES_IO_TOKEN"
+
+            if [[ "$wait_after" == "true" ]]; then
+              for attempt in {1..30}; do
+                if crate_version_published "$crate_name" "$RELEASE_VERSION"; then
+                  log_note "$crate_name $RELEASE_VERSION is visible on crates.io"
+                  return 0
+                fi
+                sleep 10
+              done
+              log_error "$crate_name $RELEASE_VERSION was not visible on crates.io after waiting"
+              exit 1
+            fi
+          }
+
+          publish_crate_if_needed "lla_plugin_interface" true
+          publish_crate_if_needed "lla_plugin_utils" true
+          publish_crate_if_needed "lla" false
+
+  publish_release:
+    name: Publish GitHub Release
+    needs: [validate, collect_assets, publish_crates]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.release_version }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
 
-      - name: Download all artifacts
+      - name: Download verified release assets
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: verified-release-assets
+          path: release_assets
 
-      - name: Create themes archive
+      - name: Create or update draft release
         run: |
-          find themes -name "*.toml" -type f | zip themes.zip -@
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
+          ensure_release_exists "$RELEASE_TAG" "Release ${RELEASE_TAG}" "release_assets/RELEASE_NOTES.md" true
 
-      - name: Generate SHA256 checksums
+      - name: Upload release assets
         run: |
-          cd artifacts
-          for artifact in */*; do
-            sha256sum "$artifact" >> ../SHA256SUMS
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
+          shopt -s nullglob
+          for asset in release_assets/*; do
+            filename="$(basename "$asset")"
+            [[ "$filename" == "RELEASE_NOTES.md" ]] && continue
+            upload_asset_if_missing "$RELEASE_TAG" "$asset"
           done
-          cd ..
-          sha256sum themes.zip >> SHA256SUMS
 
-      - name: Create Release Notes
+      - name: Verify uploaded assets
         run: |
-          {
-            echo "# Release v${{ needs.check_release.outputs.current_version }}"
-            echo
-            if [ -f CHANGELOG.md ]; then
-              echo "## Changelog"
-              echo
-              sed -n "/## \[${{ needs.check_release.outputs.current_version }}\]/,/## \[/p" CHANGELOG.md | sed '$d'
-              echo
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
+          write_expected_assets "$RELEASE_VERSION" EXPECTED_ASSETS
+          while IFS= read -r asset; do
+            [[ -z "$asset" ]] && continue
+            if ! asset_exists "$RELEASE_TAG" "$asset"; then
+              log_error "Release $RELEASE_TAG is missing uploaded asset $asset"
+              exit 1
             fi
-            echo "## SHA256 Checksums"
-            echo "\`\`\`"
-            cat SHA256SUMS
-            echo "\`\`\`"
-          } > RELEASE_NOTES.md
+          done < EXPECTED_ASSETS
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ needs.check_release.outputs.current_version }}
-          release_name: Release v${{ needs.check_release.outputs.current_version }}
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish release
         run: |
-          # Upload binaries
-          for asset in artifacts/*/*; do
-            filename=$(basename "$asset")
-            echo "Uploading $filename..."
-            gh release upload "v${{ needs.check_release.outputs.current_version }}" "$asset" --clobber
-          done
-
-          # Upload themes archive
-          gh release upload "v${{ needs.check_release.outputs.current_version }}" themes.zip --clobber
-
-          # Upload checksums
-          gh release upload "v${{ needs.check_release.outputs.current_version }}" SHA256SUMS --clobber
-
-  package:
-    needs: [check_release, build]
-    if: needs.check_release.outputs.should_release == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Install nFPM
-        run: |
-          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
-          sudo apt update
-          sudo apt install -y nfpm
-          nfpm --version
-
-      - name: Generate packages
-        run: |
-          VERSION="${{ needs.check_release.outputs.current_version }}"
-
-          for artifact in artifacts/*; do
-            if [[ $artifact == *linux* ]]; then
-              # Generate DEB package
-              nfpm pkg --packager deb --target "$artifact/lla_${VERSION}_amd64.deb"
-              
-              # Generate RPM package
-              nfpm pkg --packager rpm --target "$artifact/lla-${VERSION}-1.x86_64.rpm"
-              
-              # Generate APK package
-              nfpm pkg --packager apk --target "$artifact/lla-${VERSION}-r0.apk"
-              
-              # Generate Pacman package
-              nfpm pkg --packager archlinux --target "$artifact/lla-${VERSION}-1-x86_64.pkg.tar.zst"
-            fi
-          done
-
-      - name: Upload packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages
-          path: |
-            **/*.deb
-            **/*.rpm
-            **/*.apk
-            **/*.pkg.tar.zst
+          set -euo pipefail
+          source .github/scripts/release_helpers.sh
+          publish_release "$RELEASE_TAG" "Release ${RELEASE_TAG}" "release_assets/RELEASE_NOTES.md"

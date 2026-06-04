@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use libloading::Library;
 use lla_plugin_interface::{
     proto::{self, plugin_message::Message, PluginMessage},
-    PluginApi, CURRENT_PLUGIN_API_VERSION,
+    ActionInfo, PluginApi, CURRENT_PLUGIN_API_VERSION,
 };
 use once_cell::sync::Lazy;
 use prost::Message as _;
@@ -15,6 +15,15 @@ use std::path::{Path, PathBuf};
 
 type DecorationCache = DashMap<(String, String), HashMap<String, String>>;
 static DECORATION_CACHE: Lazy<DecorationCache> = Lazy::new(DashMap::new);
+
+fn normalize_plugin_format(format: &str) -> Option<&'static str> {
+    match format {
+        "default" => Some("default"),
+        "long" => Some("long"),
+        "table" => Some("long"),
+        _ => None,
+    }
+}
 
 pub struct PluginManager {
     plugins: HashMap<String, (Library, *mut PluginApi)>,
@@ -73,15 +82,30 @@ impl PluginManager {
     fn send_request(&self, plugin_name: &str, request: PluginMessage) -> Result<PluginMessage> {
         if let Some((_, api)) = self.plugins.get(plugin_name) {
             let mut buf = Vec::with_capacity(request.encoded_len());
-            request.encode(&mut buf).unwrap();
+            request.encode(&mut buf).map_err(|e| {
+                LlaError::Plugin(format!(
+                    "Failed to encode request for plugin '{}': {}",
+                    plugin_name, e
+                ))
+            })?;
 
             unsafe {
                 let raw_response =
                     ((**api).handle_request)(std::ptr::null_mut(), buf.as_ptr(), buf.len());
-                let response_vec =
-                    Vec::from_raw_parts(raw_response.ptr, raw_response.len, raw_response.capacity);
-                let response_msg = proto::PluginMessage::decode(&response_vec[..])
-                    .map_err(|e| LlaError::Plugin(format!("Failed to decode response: {}", e)))?;
+                if raw_response.ptr.is_null() {
+                    return Err(LlaError::Plugin(format!(
+                        "Plugin '{}' returned an empty response",
+                        plugin_name
+                    )));
+                }
+                let response_vec = raw_response.into_vec();
+                let response_msg =
+                    proto::PluginMessage::decode(&response_vec[..]).map_err(|e| {
+                        LlaError::Plugin(format!(
+                            "Failed to decode response from plugin '{}': {}",
+                            plugin_name, e
+                        ))
+                    })?;
                 Ok(response_msg)
             }
         } else {
@@ -99,10 +123,28 @@ impl PluginManager {
         args: &[String],
     ) -> Result<()> {
         if !self.enabled_plugins.contains(plugin_name) {
-            return Err(LlaError::Plugin(format!(
-                "Plugin '{}' is not enabled",
+            // Check if the plugin exists
+            if !self.plugins.contains_key(plugin_name) {
+                // List available plugins to help the user
+                let available: Vec<String> = self.plugins.keys().cloned().collect();
+                let suggestion = if available.is_empty() {
+                    "No plugins are currently installed. Run 'lla install' to install plugins."
+                        .to_string()
+                } else {
+                    format!("Available plugins: {}", available.join(", "))
+                };
+                return Err(LlaError::Plugin(format!(
+                    "Plugin '{}' not found.\n\n{}",
+                    plugin_name, suggestion
+                )));
+            }
+
+            // Auto-enable the plugin with a warning
+            eprintln!(
+                "⚠️  Plugin '{}' was disabled. Enabling it now...",
                 plugin_name
-            )));
+            );
+            self.enable_plugin(plugin_name)?;
         }
 
         let request = PluginMessage {
@@ -117,11 +159,30 @@ impl PluginManager {
                 if response.success {
                     Ok(())
                 } else {
-                    Err(LlaError::Plugin(
-                        response
-                            .error
-                            .unwrap_or_else(|| "Unknown error".to_string()),
-                    ))
+                    let error_msg = response
+                        .error
+                        .unwrap_or_else(|| "Unknown error".to_string());
+
+                    // If it's an unknown action error, try to list available actions
+                    if error_msg.to_lowercase().contains("unknown action") {
+                        if let Ok(actions) = self.get_plugin_actions(plugin_name) {
+                            let action_list: Vec<String> = actions
+                                .iter()
+                                .map(|a| format!("  • {} - {}", a.name, a.description))
+                                .collect();
+
+                            if !action_list.is_empty() {
+                                return Err(LlaError::Plugin(format!(
+                                    "{}\n\nAvailable actions for '{}':\n{}",
+                                    error_msg,
+                                    plugin_name,
+                                    action_list.join("\n")
+                                )));
+                            }
+                        }
+                    }
+
+                    Err(LlaError::Plugin(error_msg))
                 }
             }
             _ => Err(LlaError::Plugin("Invalid response type".to_string())),
@@ -181,6 +242,38 @@ impl PluginManager {
         result
     }
 
+    pub fn get_plugin_actions(&mut self, plugin_name: &str) -> Result<Vec<ActionInfo>> {
+        if !self.plugins.contains_key(plugin_name) {
+            return Err(LlaError::Plugin(format!(
+                "Plugin '{}' not found",
+                plugin_name
+            )));
+        }
+
+        let request = PluginMessage {
+            message: Some(Message::ListActions(true)),
+        };
+
+        match self.send_request(plugin_name, request)?.message {
+            Some(Message::ListActionsResponse(response)) => {
+                let actions = response
+                    .actions
+                    .into_iter()
+                    .map(|action| ActionInfo {
+                        name: action.name,
+                        usage: action.usage,
+                        description: action.description,
+                        examples: action.examples,
+                    })
+                    .collect();
+                Ok(actions)
+            }
+            _ => Err(LlaError::Plugin(
+                "Invalid response type for list actions".to_string(),
+            )),
+        }
+    }
+
     pub fn load_plugin<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let path = path.as_ref().canonicalize()?;
         if self.loaded_paths.contains(&path) {
@@ -207,7 +300,10 @@ impl PluginManager {
                                 message: Some(Message::GetName(true)),
                             };
                             let mut buf = Vec::with_capacity(request.encoded_len());
-                            request.encode(&mut buf).unwrap();
+                            if let Err(e) = request.encode(&mut buf) {
+                                eprintln!("⚠️ Failed to encode name request for {:?}: {}", path, e);
+                                return Ok(());
+                            }
 
                             match ((*api).handle_request)(
                                 std::ptr::null_mut(),
@@ -215,11 +311,14 @@ impl PluginManager {
                                 buf.len(),
                             ) {
                                 raw_response => {
-                                    let response_vec = Vec::from_raw_parts(
-                                        raw_response.ptr,
-                                        raw_response.len,
-                                        raw_response.capacity,
-                                    );
+                                    if raw_response.ptr.is_null() {
+                                        eprintln!(
+                                            "⚠️ Plugin returned an empty response for {:?}",
+                                            path
+                                        );
+                                        return Ok(());
+                                    }
+                                    let response_vec = raw_response.into_vec();
                                     match proto::PluginMessage::decode(&response_vec[..]) {
                                         Ok(response_msg) => match response_msg.message {
                                             Some(Message::NameResponse(name)) => {
@@ -303,7 +402,10 @@ impl PluginManager {
     }
 
     pub fn decorate_entry(&mut self, entry: &mut proto::DecoratedEntry, format: &str) {
-        if self.enabled_plugins.is_empty() || (format != "default" && format != "long") {
+        let Some(plugin_format) = normalize_plugin_format(format) else {
+            return;
+        };
+        if self.enabled_plugins.is_empty() {
             return;
         }
 
@@ -325,7 +427,7 @@ impl PluginManager {
 
                 if let Ok(response) = self.send_request(name, request) {
                     if let Some(Message::FormatsResponse(formats_response)) = response.message {
-                        if formats_response.formats.contains(&format.to_string()) {
+                        if formats_response.formats.iter().any(|f| f == plugin_format) {
                             names.push(name.clone());
                         }
                     }
@@ -360,7 +462,10 @@ impl PluginManager {
     }
 
     pub fn format_fields(&mut self, entry: &proto::DecoratedEntry, format: &str) -> Vec<String> {
-        if self.enabled_plugins.is_empty() || (format != "default" && format != "long") {
+        let Some(plugin_format) = normalize_plugin_format(format) else {
+            return Vec::new();
+        };
+        if self.enabled_plugins.is_empty() {
             return Vec::new();
         }
 
@@ -374,7 +479,7 @@ impl PluginManager {
             ) {
                 Ok(response) => {
                     if let Some(Message::FormatsResponse(formats)) = response.message {
-                        formats.formats.contains(&format.to_string())
+                        formats.formats.iter().any(|f| f == plugin_format)
                     } else {
                         false
                     }
@@ -386,7 +491,7 @@ impl PluginManager {
                 let request = PluginMessage {
                     message: Some(Message::FormatField(proto::FormatFieldRequest {
                         entry: Some(entry.clone()),
-                        format: format.to_string(),
+                        format: plugin_format.to_string(),
                     })),
                 };
 

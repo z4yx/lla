@@ -25,7 +25,7 @@ lazy_static! {
             "help",
             "help",
             "Show help information",
-            vec!["lla plugin --name file_hash --action help"],
+            ["lla plugin --name file_hash --action help"],
             |_| {
                 let mut help = HelpFormatter::new("File Hash Plugin".to_string());
                 help.add_section("Description".to_string()).add_command(
@@ -225,6 +225,9 @@ impl Plugin for FileHashPlugin {
                     PluginRequest::PerformAction(action, args) => {
                         let result = ACTION_REGISTRY.read().handle(&action, &args);
                         PluginResponse::ActionResult(result)
+                    }
+                    PluginRequest::GetAvailableActions => {
+                        PluginResponse::AvailableActions(ACTION_REGISTRY.read().list_actions())
                     }
                 };
                 self.encode_response(response)

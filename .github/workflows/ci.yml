@@ -3,8 +3,28 @@ name: CI
 on:
   push:
     branches: ["main"]
+    paths:
+      - "**/*.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/*.proto"
+      - "**/*.sh"
+      - "scripts/**"
+      - ".github/workflows/ci.yml"
+      - "nfpm.yaml"
+      - "rust-toolchain.toml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "**/*.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/*.proto"
+      - "**/*.sh"
+      - "scripts/**"
+      - ".github/workflows/ci.yml"
+      - "nfpm.yaml"
+      - "rust-toolchain.toml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,13 +36,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rust: [1.71.0]
+        rust: [stable]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
@@ -57,12 +77,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           components: rustfmt, clippy
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
+
+      - name: Ensure stable toolchain and target installed
+        run: |
+          rustup override set stable
+          rustup show active-toolchain
+          rustup target add ${{ matrix.target }} --toolchain stable
+          rustup target list --installed
 
       - name: Install cross-compilation tools
         if: matrix.cross_compile && runner.os == 'Linux'
@@ -78,9 +105,10 @@ jobs:
           echo "CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build release
-        run: |
-          export RUSTFLAGS="-C target-feature=+crt-static" 
-          cargo build --release --target ${{ matrix.target }}
+        env:
+          RUSTUP_TOOLCHAIN: stable
+          RUSTFLAGS: -C target-feature=+crt-static 
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare binary (Unix)
         if: runner.os != 'Windows'

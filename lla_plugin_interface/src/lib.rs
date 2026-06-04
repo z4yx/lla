@@ -44,6 +44,15 @@ pub enum PluginRequest {
     Decorate(DecoratedEntry),
     FormatField(DecoratedEntry, String),
     PerformAction(String, Vec<String>),
+    GetAvailableActions,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ActionInfo {
+    pub name: String,
+    pub usage: String,
+    pub description: String,
+    pub examples: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -55,6 +64,7 @@ pub enum PluginResponse {
     Decorated(DecoratedEntry),
     FormattedField(Option<String>),
     ActionResult(Result<(), String>),
+    AvailableActions(Vec<ActionInfo>),
     Error(String),
 }
 
@@ -130,6 +140,10 @@ impl RawBuffer {
         RawBuffer { ptr, len, capacity }
     }
 
+    /// # Safety
+    ///
+    /// The buffer must have been created by `RawBuffer::from_vec`, and it must not have already
+    /// been converted back into a `Vec` or otherwise freed.
     pub unsafe fn into_vec(self) -> Vec<u8> {
         Vec::from_raw_parts(self.ptr, self.len, self.capacity)
     }
